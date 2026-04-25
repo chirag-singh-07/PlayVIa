@@ -47,7 +47,9 @@ app.use('/api/referral', referralRoutes);
 
 // Initialize background jobs
 const initCronJobs = require('./jobs/cronJobs');
+const keepAlive = require('./jobs/keepAlive');
 initCronJobs();
+keepAlive(process.env.BACKEND_URL);
 
 // Root route
 app.get('/', (req, res) => {

@@ -1,0 +1,31 @@
+You deleted `node_modules` so `expo` itself is gone. Fix:
+
+---
+
+**Step 1 — Install expo first:**
+```bash
+npm install expo --legacy-peer-deps
+```
+
+---
+
+**Step 2 — Now run the fix command:**
+```bash
+npx expo install --fix
+```
+
+---
+
+**Step 3 — Install remaining packages:**
+```bash
+npm install --legacy-peer-deps
+```
+
+---
+
+**Step 4 — Clear cache and start:**
+```bash
+npx expo start --clear
+```
+
+That's it. The error just means `node_modules` was empty so even `expo` CLI couldn't load — installing it first unblocks everything.

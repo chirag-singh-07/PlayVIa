@@ -35,14 +35,19 @@ export const ShortsScreen: React.FC = () => {
     return (
       <View style={styles.shortContainer}>
         {isActive ? (
-          <Video
-            source={{ uri: item.videoUrl }}
-            style={styles.video}
-            resizeMode={ResizeMode.COVER}
-            shouldPlay={isActive}
-            isLooping
-            useNativeControls={false}
-          />
+          (() => {
+            const VideoPlayer = Video as any;
+            return (
+              <VideoPlayer
+                source={{ uri: item.videoUrl }}
+                style={styles.video}
+                resizeMode={ResizeMode.COVER}
+                shouldPlay={isActive}
+                isLooping
+                useNativeControls={false}
+              />
+            );
+          })()
         ) : (
           <Image source={{ uri: item.thumbnailUrl }} style={styles.video} resizeMode="cover" />
         )}

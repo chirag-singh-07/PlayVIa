@@ -17,6 +17,7 @@ import { Video, ResizeMode } from 'expo-av';
 
 export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
   const { isAuthenticated, user: currentUser } = useAuth();
+  const { video: initialVideo } = route.params || {};
   const [video, setVideo] = useState<any>(initialVideo || {});
   const [loading, setLoading] = useState(!initialVideo);
   const [isLiked, setIsLiked] = useState(false);
@@ -28,7 +29,7 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
   const [showControls, setShowControls] = useState(true);
   const [isLandscape, setIsLandscape] = useState(Dimensions.get('window').width > Dimensions.get('window').height);
   const controlsOpacity = useRef(new Animated.Value(1)).current;
-  const hideControlsTimeout = useRef<NodeJS.Timeout | null>(null);
+  const hideControlsTimeout = useRef<any>(null);
 
   useEffect(() => {
     const fetchVideoDetails = async () => {
@@ -140,15 +141,21 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
         style={[styles.playerContainer, isLandscape && styles.playerContainerLandscape]} 
         onPress={toggleControls}
       >
-        <Video
-          ref={videoRef}
-          source={{ uri: video.videoUrl }}
-          style={styles.video}
-          resizeMode={ResizeMode.CONTAIN}
-          shouldPlay={true}
-          onPlaybackStatusUpdate={status => setStatus(() => status)}
-          useNativeControls={false}
-        />
+        {/* FIXED: handled React 19 ref issue with expo-av Video */}
+        {(() => {
+          const VideoPlayer = Video as any;
+          return (
+            <VideoPlayer
+              ref={videoRef}
+              source={{ uri: video.videoUrl }}
+              style={styles.video}
+              resizeMode={ResizeMode.CONTAIN}
+              shouldPlay={true}
+              onPlaybackStatusUpdate={(status: any) => setStatus(() => status)}
+              useNativeControls={false}
+            />
+          );
+        })()}
         
         {showControls && (
           <Animated.View style={[styles.playerOverlay, { opacity: controlsOpacity }]}>

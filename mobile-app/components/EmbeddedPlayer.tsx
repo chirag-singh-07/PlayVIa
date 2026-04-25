@@ -31,7 +31,7 @@ const isValidHttpUrl = (url: string | null): boolean => {
     }
 };
 
-const EmbeddedPlayer: React.FC<EmbeddedPlayerProps> = ({ videoUri }) => {
+const EmbeddedPlayer: React.FC<EmbeddedPlayerProps> = ({ videoUri } : { videoUri: string | null }) => {
     const [hasError, setHasError] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     
@@ -220,9 +220,11 @@ const EmbeddedPlayer: React.FC<EmbeddedPlayerProps> = ({ videoUri }) => {
     }
 
     // FIXED: replaced expo-video with expo-av for direct video links
+    const VideoPlayer = Video as any;
+
     return (
         <View style={styles.container}>
-            <Video
+            <VideoPlayer
                 ref={videoRef}
                 source={{ uri: videoUri }}
                 style={{ width: '100%', height: '100%' }}
@@ -231,7 +233,7 @@ const EmbeddedPlayer: React.FC<EmbeddedPlayerProps> = ({ videoUri }) => {
                 isMuted={isMuted}
                 isLooping={false}
                 useNativeControls
-                onPlaybackStatusUpdate={(status) => {
+                onPlaybackStatusUpdate={(status: AVPlaybackStatus) => {
                     setStatus(status);
                     if (status.isLoaded) {
                         setIsPlaying(status.isPlaying);

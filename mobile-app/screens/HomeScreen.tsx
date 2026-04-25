@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, StatusBar, RefreshControl, Animated } from 'react-native';
+import { View, StyleSheet, FlatList, StatusBar, RefreshControl, Animated, ScrollView } from 'react-native';
 import { Header } from '../components/Header';
 import { VideoCard } from '../components/VideoCard';
-import { MOCK_DATA } from '../constants';
 import { colors } from '../theme';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 import { SkeletonLoader } from '../components/SkeletonLoader';
 import { EmptyState } from '../components/EmptyState';
 import { useScrollHeader } from '../hooks/useScrollHeader';
 import { layout } from '../constants';
+import { videoService } from '../services/videoService';
+import { formatViews, formatTimeAgo, formatDuration } from '../utils/videoUtils';
+
+import { VideoSkeleton } from '../components/VideoSkeleton';
 
 export const HomeScreen: React.FC<any> = ({ navigation }) => {
   const { onScroll, headerTranslateY } = useScrollHeader(60);
@@ -16,34 +19,27 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [videos, setVideos] = useState<any[]>([]);
 
-  useEffect(() => {
-    // Simulate fetching
-    setTimeout(() => {
-      setVideos(MOCK_DATA.videos);
+  const fetchVideos = async (isRefreshing = false) => {
+    try {
+      if (!isRefreshing) setLoading(true);
+      const data = await videoService.getVideos();
+      setVideos(data.videos || []);
+    } catch (error) {
+      console.error('Error fetching videos:', error);
+    } finally {
       setLoading(false);
-    }, 1500);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchVideos();
   }, []);
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
-    setTimeout(() => {
-      setVideos(MOCK_DATA.videos); // Or new data
-      setRefreshing(false);
-    }, 1000);
+    fetchVideos(true);
   }, []);
-
-  const renderSkeleton = () => (
-    <View style={styles.skeletonContainer}>
-      <SkeletonLoader height={200} borderRadius={0} />
-      <View style={styles.skeletonInfo}>
-        <SkeletonLoader width={40} height={40} borderRadius={20} />
-        <View style={styles.skeletonText}>
-          <SkeletonLoader width="90%" height={16} style={{ marginBottom: 8 }} />
-          <SkeletonLoader width="60%" height={14} />
-        </View>
-      </View>
-    </View>
-  );
 
   return (
     <ScreenWrapper edges={['top', 'left', 'right']}>
@@ -54,27 +50,26 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
       </Animated.View>
       
       {loading ? (
-        <FlatList
-          data={[1, 2, 3]}
-          keyExtractor={(item) => item.toString()}
-          renderItem={renderSkeleton}
-          contentContainerStyle={{ paddingTop: 60 }} // Header offset
-        />
+        <ScrollView style={{ paddingTop: 60 }} showsVerticalScrollIndicator={false}>
+          <VideoSkeleton />
+          <VideoSkeleton />
+          <VideoSkeleton />
+        </ScrollView>
       ) : (
         <Animated.FlatList
           data={videos}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item._id} // MongoDB uses _id
           onScroll={onScroll}
           scrollEventThrottle={16}
           renderItem={({ item }) => (
             <VideoCard
               title={item.title}
-              thumbnail={item.thumbnail}
-              channelName={item.channelName}
-              channelAvatar={item.channelAvatar}
-              views={item.views}
-              createdAt={item.createdAt}
-              duration={item.duration}
+              thumbnail={item.thumbnailUrl}
+              channelName={item.channel?.name || 'Unknown Channel'}
+              channelAvatar={item.channel?.avatar || ''}
+              views={formatViews(item.views || 0)}
+              createdAt={formatTimeAgo(item.createdAt)}
+              duration={formatDuration(item.duration)}
               onPress={() => navigation.navigate('VideoPlayer', { video: item })}
             />
           )}

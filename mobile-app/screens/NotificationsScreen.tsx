@@ -6,33 +6,34 @@ import { colors, typography } from '../theme';
 import { layout } from '../constants';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 
+import { notificationService } from '../services/notificationService';
+import { ActivityIndicator } from 'react-native';
+
 export const NotificationsScreen: React.FC<any> = ({ navigation }) => {
-  const notifications = [
-    {
-      id: '1',
-      type: 'video' as const,
-      message: 'Design Pro uploaded: 10 UX Rules You Need To Know',
-      timestamp: '2 hours ago',
-      avatarUri: 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?q=80&w=100&auto=format&fit=crop',
-      isRead: false,
-    },
-    {
-      id: '2',
-      type: 'like' as const,
-      message: 'Tech Talk liked your comment: "Great explanation!"',
-      timestamp: '5 hours ago',
-      avatarUri: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=100&auto=format&fit=crop',
-      isRead: true,
-    },
-    {
-      id: '3',
-      type: 'comment' as const,
-      message: 'Frontend Mastery replied to your comment',
-      timestamp: '1 day ago',
-      avatarUri: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=100&auto=format&fit=crop',
-      isRead: true,
-    },
-  ];
+  const [notifications, setNotifications] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const data = await notificationService.getNotifications();
+        setNotifications(data);
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchNotifications();
+  }, []);
+
+  if (loading) return (
+    <ScreenWrapper>
+       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.dark.primary} />
+       </View>
+    </ScreenWrapper>
+  );
 
   return (
     <ScreenWrapper>

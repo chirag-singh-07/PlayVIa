@@ -9,7 +9,46 @@ import { colors, typography } from '../theme';
 import { layout, MOCK_DATA } from '../constants';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 
+import { useAuth } from '../context/AuthContext';
+import { channelService } from '../services/channelService';
+import { earningsService } from '../services/earningsService';
+import { ActivityIndicator } from 'react-native';
+import { formatViews } from '../utils/videoUtils';
+
 export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
+  const { user } = useAuth();
+  const [videos, setVideos] = React.useState<any[]>([]);
+  const [earnings, setEarnings] = React.useState<any>(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        if (user?.channel) {
+          const [channelVideos, channelEarnings] = await Promise.all([
+            channelService.getChannelVideos(user.channel._id),
+            earningsService.getChannelEarnings(user.channel._id)
+          ]);
+          setVideos(channelVideos);
+          setEarnings(channelEarnings);
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboardData();
+  }, [user]);
+
+  if (loading) return (
+    <ScreenWrapper>
+       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.dark.primary} />
+       </View>
+    </ScreenWrapper>
+  );
+
   return (
     <ScreenWrapper>
       <View style={styles.header}>
@@ -24,16 +63,16 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
         <DashboardCard style={styles.section}>
           <Text style={styles.sectionTitle}>Channel Analytics</Text>
           <Text style={styles.sectionSubtitle}>Current subscribers</Text>
-          <Text style={styles.largeValue}>1,234</Text>
-          <Text style={styles.statChange}>+24 in last 28 days</Text>
+          <Text style={styles.largeValue}>{formatViews(user?.channel?.subscribersCount || 0)}</Text>
+          <Text style={styles.statChange}>Overall performance</Text>
 
           <View style={styles.divider} />
           
-          <Text style={styles.sectionSubtitle}>Summary (Last 28 days)</Text>
+          <Text style={styles.sectionSubtitle}>Summary</Text>
           <View style={styles.statsRow}>
-            <StatsCard title="Views" value="15.2K" icon="eye-outline" />
-            <StatsCard title="Watch time" value="124.5" icon="time-outline" />
-            <StatsCard title="Videos" value="45" icon="videocam-outline" />
+            <StatsCard title="Views" value={formatViews(user?.channel?.totalViews || 0)} icon="eye-outline" />
+            <StatsCard title="Videos" value={videos.length.toString()} icon="videocam-outline" />
+            <StatsCard title="Subscribers" value={formatViews(user?.channel?.subscribersCount || 0)} icon="people-outline" />
           </View>
         </DashboardCard>
 
@@ -52,27 +91,53 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
           />
         </View>
 
+        {/* Monetization Section */}
+        <DashboardCard style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Monetization Status</Text>
+            <Ionicons 
+              name={earnings?.eligible ? "checkmark-circle" : "alert-circle"} 
+              size={24} 
+              color={earnings?.eligible ? "#4CAF50" : colors.dark.textSecondary} 
+            />
+          </View>
+          {earnings?.eligible ? (
+            <View>
+              <Text style={styles.largeValue}>₹{earnings.earnings}</Text>
+              <Text style={styles.sectionSubtitle}>Total Estimated Earnings</Text>
+            </View>
+          ) : (
+            <View>
+              <Text style={styles.sectionSubtitle}>{earnings?.message}</Text>
+              <View style={styles.progressContainer}>
+                <View style={[styles.progressBar, { width: `${Math.min(100, (user?.channel?.subscribersCount || 0) / 20)}%` }]} />
+              </View>
+              <Text style={styles.progressText}>{user?.channel?.subscribersCount || 0} / 2000 subscribers</Text>
+            </View>
+          )}
+        </DashboardCard>
+
         {/* Latest Content */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Latest Video Performance</Text>
+          <Text style={styles.sectionTitle}>Your Content</Text>
         </View>
         
-        {MOCK_DATA.videos.slice(0, 1).map((item) => (
+        {videos.slice(0, 5).map((item) => (
           <VideoCard
-            key={item.id}
+            key={item._id}
             title={item.title}
-            thumbnail={item.thumbnail}
-            channelName={item.channelName}
-            channelAvatar={item.channelAvatar}
-            views={item.views}
-            createdAt={item.createdAt}
+            thumbnail={item.thumbnailUrl}
+            channelName={user?.channel?.name || 'Your Channel'}
+            channelAvatar={user?.avatar || ''}
+            views={formatViews(item.views || 0)}
+            createdAt={item.createdAt} // Should be formatted but for now okay
             duration={item.duration}
             onPress={() => navigation.navigate('VideoPlayer', { video: item })}
           />
         ))}
 
         <Button
-          title="Go to Your Videos"
+          title="See All Videos"
           variant="outline"
           onPress={() => navigation.navigate('YourVideos')}
           style={styles.allVideosBtn}
@@ -150,5 +215,20 @@ const styles = StyleSheet.create({
   },
   allVideosBtn: {
     marginTop: layout.spacing.md,
+  },
+  progressContainer: {
+    height: 8,
+    backgroundColor: colors.dark.border,
+    borderRadius: 4,
+    marginVertical: layout.spacing.sm,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: colors.dark.primary,
+  },
+  progressText: {
+    color: colors.dark.textSecondary,
+    fontSize: typography.sizes.xs,
   },
 });

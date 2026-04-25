@@ -5,25 +5,56 @@ import { Avatar } from '../components/Avatar';
 import { colors, typography } from '../theme';
 import { layout } from '../constants';
 import { ScreenWrapper } from '../components/ScreenWrapper';
+import { videoService } from '../services/videoService';
+import { channelService } from '../services/channelService';
+import { commentService } from '../services/commentService';
+import { historyService } from '../services/historyService';
+import { useAuth } from '../context/AuthContext';
+import { formatViews, formatTimeAgo, formatDuration } from '../utils/videoUtils';
+import { Alert, Share } from 'react-native';
+
+import { Video, ResizeMode } from 'expo-av';
 
 export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
-  // Mock data passed from Home
-  const video = route.params?.video || {
-    id: '1',
-    title: 'Building a YouTube Clone with React Native & Expo',
-    views: '125K',
-    createdAt: '2 days ago',
-    channelName: 'Frontend Mastery',
-    channelAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=100&auto=format&fit=crop',
-    thumbnail: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?q=80&w=1000&auto=format&fit=crop',
-    likes: '12K',
-  };
-
-  const [isPlaying, setIsPlaying] = useState(false);
+  const { isAuthenticated, user: currentUser } = useAuth();
+  const [video, setVideo] = useState<any>(initialVideo || {});
+  const [loading, setLoading] = useState(!initialVideo);
+  const [isLiked, setIsLiked] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [comments, setComments] = useState<any[]>([]);
+  
+  const videoRef = useRef<Video>(null);
+  const [status, setStatus] = useState<any>({});
   const [showControls, setShowControls] = useState(true);
   const [isLandscape, setIsLandscape] = useState(Dimensions.get('window').width > Dimensions.get('window').height);
   const controlsOpacity = useRef(new Animated.Value(1)).current;
   const hideControlsTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const fetchVideoDetails = async () => {
+      if (initialVideo?._id) {
+        try {
+          const detailedVideo = await videoService.getVideoById(initialVideo._id);
+          setVideo(detailedVideo);
+          
+          if (isAuthenticated) {
+            setIsLiked(detailedVideo.likes?.includes(currentUser?._id));
+            // Add to watch history
+            historyService.addToHistory(initialVideo._id).catch(err => console.error('Error adding to history:', err));
+          }
+
+          const videoComments = await commentService.getVideoComments(initialVideo._id);
+          setComments(videoComments);
+        } catch (error) {
+          console.error('Error fetching video details:', error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchVideoDetails();
+  }, [initialVideo?._id]);
 
   useEffect(() => {
     const updateOrientation = () => {
@@ -52,8 +83,53 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
   };
 
   const togglePlay = () => {
-    setIsPlaying(!isPlaying);
+    if (status.isPlaying) {
+      videoRef.current?.pauseAsync();
+    } else {
+      videoRef.current?.playAsync();
+    }
     scheduleHideControls();
+  };
+
+  const toggleLike = async () => {
+    if (!isAuthenticated) {
+      Alert.alert('Login Required', 'Please login to like videos.');
+      return;
+    }
+    try {
+      const result = await videoService.toggleLike(video._id);
+      setIsLiked(!isLiked);
+      setVideo({ ...video, likesCount: result.likesCount });
+    } catch (error) {
+      console.error('Error toggling like:', error);
+    }
+  };
+
+  const toggleSubscribe = async () => {
+    if (!isAuthenticated) {
+      Alert.alert('Login Required', 'Please login to subscribe.');
+      return;
+    }
+    try {
+      if (video.channel?._id) {
+        await channelService.subscribeToChannel(video.channel._id);
+        setIsSubscribed(!isSubscribed);
+      }
+    } catch (error) {
+      console.error('Error toggling subscription:', error);
+    }
+  };
+
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message: `Check out this video on PlayVia: ${video.title}\n${video.videoUrl}`,
+        url: video.videoUrl,
+        title: video.title,
+      });
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
   };
 
   return (
@@ -64,7 +140,15 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
         style={[styles.playerContainer, isLandscape && styles.playerContainerLandscape]} 
         onPress={toggleControls}
       >
-        <Image source={{ uri: video.thumbnail }} style={styles.videoMock} resizeMode="cover" />
+        <Video
+          ref={videoRef}
+          source={{ uri: video.videoUrl }}
+          style={styles.video}
+          resizeMode={ResizeMode.CONTAIN}
+          shouldPlay={true}
+          onPlaybackStatusUpdate={status => setStatus(() => status)}
+          useNativeControls={false}
+        />
         
         {showControls && (
           <Animated.View style={[styles.playerOverlay, { opacity: controlsOpacity }]}>
@@ -82,20 +166,22 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
             </View>
             
             <View style={styles.centerControls}>
-              <TouchableOpacity>
+              <TouchableOpacity onPress={() => videoRef.current?.setPositionAsync(Math.max(0, status.positionMillis - 10000))}>
                 <Ionicons name="play-back" size={36} color={colors.dark.white} />
               </TouchableOpacity>
               <TouchableOpacity onPress={togglePlay} style={styles.playButton}>
-                <Ionicons name={isPlaying ? "pause" : "play"} size={48} color={colors.dark.white} />
+                <Ionicons name={status.isPlaying ? "pause" : "play"} size={48} color={colors.dark.white} />
               </TouchableOpacity>
-              <TouchableOpacity>
+              <TouchableOpacity onPress={() => videoRef.current?.setPositionAsync(status.positionMillis + 10000)}>
                 <Ionicons name="play-forward" size={36} color={colors.dark.white} />
               </TouchableOpacity>
             </View>
             
             <View style={styles.bottomControls}>
-              <Text style={styles.timeText}>0:00 / 12:34</Text>
-              <TouchableOpacity>
+              <Text style={styles.timeText}>
+                {formatDuration(status.positionMillis / 1000)} / {formatDuration(video.duration || status.durationMillis / 1000)}
+              </Text>
+              <TouchableOpacity onPress={() => setIsLandscape(!isLandscape)}>
                 <Ionicons name="expand" size={20} color={colors.dark.white} />
               </TouchableOpacity>
             </View>
@@ -109,29 +195,38 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
           {/* Video Info */}
           <View style={styles.infoSection}>
             <Text style={styles.title}>{video.title}</Text>
-            <Text style={styles.stats}>{video.views} views • {video.createdAt}</Text>
+            <Text style={styles.stats}>{formatViews(video.views || 0)} views • {formatTimeAgo(video.createdAt)}</Text>
           </View>
 
           {/* Channel Info & Subscribe */}
           <View style={styles.channelSection}>
             <View style={styles.channelLeft}>
-              <Avatar uri={video.channelAvatar} size={40} />
+              <Avatar uri={video.channel?.avatar} size={40} />
               <View style={styles.channelText}>
-                <Text style={styles.channelName}>{video.channelName}</Text>
-                <Text style={styles.subscribers}>1.2M subscribers</Text>
+                <Text style={styles.channelName}>{video.channel?.name || 'Unknown Channel'}</Text>
+                <Text style={styles.subscribers}>{formatViews(video.channel?.subscribersCount || 0)} subscribers</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.subscribeBtn}>
-              <Text style={styles.subscribeText}>Subscribe</Text>
+            <TouchableOpacity 
+              style={[styles.subscribeBtn, isSubscribed && { backgroundColor: colors.dark.surface }]} 
+              onPress={toggleSubscribe}
+            >
+              <Text style={[styles.subscribeText, isSubscribed && { color: colors.dark.textSecondary }]}>
+                {isSubscribed ? 'Subscribed' : 'Subscribe'}
+              </Text>
             </TouchableOpacity>
           </View>
 
           {/* Action Buttons (Horizontal Scroll) */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actionsScroll}>
             <View style={styles.actionGroup}>
-              <TouchableOpacity style={styles.actionBtnLeft}>
-                <Ionicons name="thumbs-up-outline" size={20} color={colors.dark.text} />
-                <Text style={styles.actionBtnText}>{video.likes}</Text>
+              <TouchableOpacity style={styles.actionBtnLeft} onPress={toggleLike}>
+                <Ionicons 
+                  name={isLiked ? "thumbs-up" : "thumbs-up-outline"} 
+                  size={20} 
+                  color={isLiked ? colors.dark.primary : colors.dark.text} 
+                />
+                <Text style={styles.actionBtnText}>{formatViews(video.likesCount || 0)}</Text>
               </TouchableOpacity>
               <View style={styles.actionDivider} />
               <TouchableOpacity style={styles.actionBtnRight}>
@@ -139,7 +234,7 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={styles.actionBtnStandalone}>
+            <TouchableOpacity style={styles.actionBtnStandalone} onPress={handleShare}>
               <Ionicons name="share-outline" size={20} color={colors.dark.text} />
               <Text style={styles.actionBtnText}>Share</Text>
             </TouchableOpacity>
@@ -154,14 +249,18 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
           <View style={styles.commentsSection}>
             <View style={styles.commentsHeader}>
               <Text style={styles.commentsTitle}>Comments</Text>
-              <Text style={styles.commentsCount}>1.4K</Text>
+              <Text style={styles.commentsCount}>{formatViews(comments.length)}</Text>
             </View>
-            <View style={styles.commentPreview}>
-              <Avatar uri="https://icon-library.com/images/anonymous-avatar-icon/anonymous-avatar-icon-25.jpg" size={24} />
-              <Text style={styles.commentText} numberOfLines={2}>
-                This is such a great UI design! Love the attention to detail.
-              </Text>
-            </View>
+            {comments.length > 0 ? (
+              <View style={styles.commentPreview}>
+                <Avatar uri={comments[0].user?.avatar} size={24} />
+                <Text style={styles.commentText} numberOfLines={2}>
+                  {comments[0].text}
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.noCommentsText}>No comments yet</Text>
+            )}
           </View>
         </ScrollView>
       )}
@@ -190,7 +289,7 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: undefined,
   },
-  videoMock: {
+  video: {
     width: '100%',
     height: '100%',
   },
@@ -349,5 +448,11 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.sm,
     marginLeft: layout.spacing.sm,
     flex: 1,
+  },
+  noCommentsText: {
+    color: colors.dark.textSecondary,
+    fontSize: typography.sizes.sm,
+    textAlign: 'center',
+    marginTop: layout.spacing.sm,
   },
 });

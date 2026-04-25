@@ -1,20 +1,32 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SearchBar } from '../components/SearchBar';
 import { VideoCard } from '../components/VideoCard';
-import { MOCK_DATA, layout } from '../constants';
+import { layout } from '../constants';
 import { colors, typography } from '../theme';
 import { ScreenWrapper } from '../components/ScreenWrapper';
+import { videoService } from '../services/videoService';
+import { formatViews, formatTimeAgo, formatDuration } from '../utils/videoUtils';
 
 export const SearchScreen: React.FC<any> = ({ navigation }) => {
   const [hasSearched, setHasSearched] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const recentSearches = ['react native tutorial', 'expo router setup', 'glassmorphism ui'];
 
-  const handleSearch = (query: string) => {
+  const handleSearch = async (query: string) => {
     setHasSearched(true);
-    // In a real app, you would fetch search results here
+    setLoading(true);
+    try {
+      const data = await videoService.searchVideos(query);
+      setSearchResults(data.videos || []);
+    } catch (error) {
+      console.error('Error searching videos:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -41,23 +53,32 @@ export const SearchScreen: React.FC<any> = ({ navigation }) => {
             </TouchableOpacity>
           ))}
         </View>
+      ) : loading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.dark.primary} />
+        </View>
       ) : (
         <FlatList
-          data={MOCK_DATA.videos}
-          keyExtractor={(item) => item.id}
+          data={searchResults}
+          keyExtractor={(item) => item._id}
           renderItem={({ item }) => (
             <VideoCard
               title={item.title}
-              thumbnail={item.thumbnail}
-              channelName={item.channelName}
-              channelAvatar={item.channelAvatar}
-              views={item.views}
-              createdAt={item.createdAt}
-              duration={item.duration}
+              thumbnail={item.thumbnailUrl}
+              channelName={item.channel?.name || 'Unknown Channel'}
+              channelAvatar={item.channel?.avatar || ''}
+              views={formatViews(item.views || 0)}
+              createdAt={formatTimeAgo(item.createdAt)}
+              duration={formatDuration(item.duration)}
               onPress={() => navigation.navigate('VideoPlayer', { video: item })}
             />
           )}
           showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <Text style={{ color: colors.dark.textSecondary }}>No results found</Text>
+            </View>
+          }
         />
       )}
     </ScreenWrapper>

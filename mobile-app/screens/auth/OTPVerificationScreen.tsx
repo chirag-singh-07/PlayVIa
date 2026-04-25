@@ -12,23 +12,44 @@ import { AuthButton } from '../../components/auth/AuthButton';
 import { useOTPTimer } from '../../hooks/useOTPTimer';
 import { ScreenWrapper } from '../../components/ScreenWrapper';
 
+import { authService } from '../../services/authService';
+import { Alert } from 'react-native';
+
 export const OTPVerificationScreen: React.FC<any> = ({ navigation, route }) => {
   const { theme } = useTheme();
   const themeColors = theme === 'dark' ? colors.dark : colors.light;
   const { seconds, isActive, resetTimer } = useOTPTimer(30);
 
-  const phone = route?.params?.phone || '+91 9876543210';
+  const email = route?.params?.email || '';
   
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     if (otp.length < 6) return;
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      await authService.verifyOtp(email, otp);
       setIsLoading(false);
-      // navigation.replace('Main');
-    }, 1500);
+      Alert.alert('Success', 'Email verified successfully. You can now login.', [
+        { text: 'OK', onPress: () => navigation.navigate('Login') }
+      ]);
+    } catch (error: any) {
+      setIsLoading(false);
+      const errorMsg = error.response?.data?.message || 'Invalid OTP. Please try again.';
+      Alert.alert('Verification Failed', errorMsg);
+    }
+  };
+
+  const handleResend = async () => {
+    try {
+      await authService.resendOtp(email);
+      resetTimer();
+      Alert.alert('Success', 'A new OTP has been sent to your email.');
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.message || 'Failed to resend OTP.';
+      Alert.alert('Error', errorMsg);
+    }
   };
 
   return (
@@ -50,7 +71,7 @@ export const OTPVerificationScreen: React.FC<any> = ({ navigation, route }) => {
         <Animated.View entering={FadeInUp.duration(600).delay(200)} style={styles.textCenter}>
           <Text style={[styles.title, { color: themeColors.textPrimary }]}>Verify Your Account</Text>
           <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
-            We sent a 6-digit code to {phone}
+            We sent a 6-digit code to {email}
           </Text>
         </Animated.View>
 
@@ -70,15 +91,15 @@ export const OTPVerificationScreen: React.FC<any> = ({ navigation, route }) => {
                 Resend in 0:{seconds.toString().padStart(2, '0')}
               </Text>
             ) : (
-              <TouchableOpacity onPress={resetTimer}>
+              <TouchableOpacity onPress={handleResend}>
                 <Text style={[styles.resendText, { color: colors.primary }]}>Resend OTP</Text>
               </TouchableOpacity>
             )}
           </View>
           
-          <TouchableOpacity style={styles.changePhoneContainer}>
+          <TouchableOpacity style={styles.changePhoneContainer} onPress={() => navigation.goBack()}>
             <Text style={[styles.changePhoneText, { color: themeColors.textSecondary }]}>
-              Change phone number
+              Change email address
             </Text>
           </TouchableOpacity>
         </Animated.View>

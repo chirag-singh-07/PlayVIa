@@ -42,4 +42,30 @@ const toggleSubscribe = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = { toggleSubscribe };
+// @desc    Get subscribed channels
+// @route   GET /api/subscribe/channels
+// @access  Private
+const getSubscribedChannels = asyncHandler(async (req, res) => {
+  const subscriptions = await Subscription.find({ subscriber: req.user._id })
+    .populate('channel', 'name avatar subscribersCount');
+  
+  const channels = subscriptions.map(sub => sub.channel);
+  res.json(channels);
+});
+
+// @desc    Get videos from subscribed channels
+// @route   GET /api/subscribe/videos
+// @access  Private
+const getSubscriptionVideos = asyncHandler(async (req, res) => {
+  const subscriptions = await Subscription.find({ subscriber: req.user._id });
+  const channelIds = subscriptions.map(sub => sub.channel);
+
+  const Video = require('../models/Video');
+  const videos = await Video.find({ channel: { $in: channelIds } })
+    .populate('channel', 'name avatar')
+    .sort({ createdAt: -1 });
+
+  res.json(videos);
+});
+
+module.exports = { toggleSubscribe, getSubscribedChannels, getSubscriptionVideos };

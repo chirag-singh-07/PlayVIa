@@ -6,7 +6,28 @@ import { MOCK_DATA, layout } from '../constants';
 import { colors, typography } from '../theme';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 
+import { historyService } from '../services/historyService';
+import { ActivityIndicator } from 'react-native';
+import { formatViews } from '../utils/videoUtils';
+
 export const LibraryScreen: React.FC<any> = ({ navigation }) => {
+  const [history, setHistory] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const data = await historyService.getWatchHistory();
+        setHistory(data);
+      } catch (error) {
+        console.error('Error fetching watch history:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchHistory();
+  }, []);
+
   const MenuItem = ({ icon, title, subtitle, onPress }: any) => (
     <TouchableOpacity style={styles.menuItem} onPress={onPress}>
       <Ionicons name={icon} size={24} color={colors.dark.text} style={styles.menuIcon} />
@@ -15,6 +36,14 @@ export const LibraryScreen: React.FC<any> = ({ navigation }) => {
         {subtitle && <Text style={styles.menuSubtitle}>{subtitle}</Text>}
       </View>
     </TouchableOpacity>
+  );
+
+  if (loading) return (
+    <ScreenWrapper>
+       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.dark.primary} />
+       </View>
+    </ScreenWrapper>
   );
 
   return (
@@ -33,26 +62,28 @@ export const LibraryScreen: React.FC<any> = ({ navigation }) => {
         <View style={styles.sectionHeader}>
           <Ionicons name="time-outline" size={20} color={colors.dark.text} />
           <Text style={styles.sectionTitle}>History</Text>
-          <TouchableOpacity style={styles.viewAllBtn}>
+          <TouchableOpacity style={styles.viewAllBtn} onPress={() => navigation.navigate('History')}>
             <Text style={styles.viewAllText}>View all</Text>
           </TouchableOpacity>
         </View>
         
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyScroll}>
-          {MOCK_DATA.videos.map((item) => (
-            <View key={item.id} style={{ width: 160, marginRight: layout.spacing.md }}>
+          {history.length > 0 ? history.map((item) => (
+            <View key={item._id} style={{ width: 160, marginRight: layout.spacing.md }}>
                <VideoCard
-                title={item.title}
-                thumbnail={item.thumbnail}
-                channelName={item.channelName}
-                channelAvatar={item.channelAvatar}
-                views={item.views}
-                createdAt={item.createdAt}
-                duration={item.duration}
-                onPress={() => navigation.navigate('VideoPlayer', { video: item })}
+                title={item.video?.title || 'Video unavailable'}
+                thumbnail={item.video?.thumbnailUrl || ''}
+                channelName={item.video?.channel?.name || ''}
+                channelAvatar={item.video?.channel?.avatar || ''}
+                views={formatViews(item.video?.views || 0)}
+                createdAt="" // History timestamp could go here
+                duration={item.video?.duration || 0}
+                onPress={() => navigation.navigate('VideoPlayer', { video: item.video })}
               />
             </View>
-          ))}
+          )) : (
+            <Text style={{ color: colors.dark.textSecondary, marginLeft: layout.spacing.md }}>No history found</Text>
+          )}
         </ScrollView>
 
         <View style={styles.divider} />

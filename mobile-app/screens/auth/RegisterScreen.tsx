@@ -13,6 +13,9 @@ import { PasswordStrength } from '../../components/auth/PasswordStrength';
 import { useFormValidation } from '../../hooks/useFormValidation';
 import { ScreenWrapper } from '../../components/ScreenWrapper';
 
+import { authService } from '../../services/authService';
+import { Alert } from 'react-native';
+
 export const RegisterScreen: React.FC<any> = ({ navigation }) => {
   const { theme } = useTheme();
   const themeColors = theme === 'dark' ? colors.dark : colors.light;
@@ -41,13 +44,18 @@ export const RegisterScreen: React.FC<any> = ({ navigation }) => {
     formData.password === formData.confirmPassword &&
     agreed;
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!isValid) return;
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      await authService.register(formData);
       setIsLoading(false);
-      navigation.navigate('OTPVerification');
-    }, 1500);
+      navigation.navigate('OTPVerification', { email: formData.email });
+    } catch (error: any) {
+      setIsLoading(false);
+      const errorMsg = error.response?.data?.message || 'Failed to register. Please try again.';
+      Alert.alert('Registration Failed', errorMsg);
+    }
   };
 
   const updateField = (field: string, value: string) => {

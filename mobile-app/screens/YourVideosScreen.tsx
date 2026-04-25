@@ -5,7 +5,40 @@ import { MOCK_DATA, layout } from '../constants';
 import { colors, typography } from '../theme';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 
+import { useAuth } from '../context/AuthContext';
+import { channelService } from '../services/channelService';
+import { ActivityIndicator } from 'react-native';
+import { formatViews, formatTimeAgo, formatDuration } from '../utils/videoUtils';
+
 export const YourVideosScreen: React.FC<any> = ({ navigation }) => {
+  const { user } = useAuth();
+  const [videos, setVideos] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchVideos = async () => {
+      try {
+        if (user?.channel) {
+          const data = await channelService.getChannelVideos(user.channel._id);
+          setVideos(data);
+        }
+      } catch (error) {
+        console.error('Error fetching your videos:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchVideos();
+  }, [user]);
+
+  if (loading) return (
+    <ScreenWrapper>
+       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.dark.primary} />
+       </View>
+    </ScreenWrapper>
+  );
+
   return (
     <ScreenWrapper>
       <View style={styles.header}>
@@ -16,21 +49,21 @@ export const YourVideosScreen: React.FC<any> = ({ navigation }) => {
       </View>
 
       <FlatList
-        data={MOCK_DATA.videos}
-        keyExtractor={(item) => item.id}
+        data={videos}
+        keyExtractor={(item) => item._id}
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => (
-          <View style={styles.videoItem}>
+          <TouchableOpacity style={styles.videoItem} onPress={() => navigation.navigate('VideoPlayer', { video: item })}>
             <View style={styles.thumbnailContainer}>
-              <Image source={{ uri: item.thumbnail }} style={styles.thumbnail} />
+              <Image source={{ uri: item.thumbnailUrl }} style={styles.thumbnail} />
               <View style={styles.durationBadge}>
-                <Text style={styles.durationText}>{item.duration}</Text>
+                <Text style={styles.durationText}>{formatDuration(item.duration)}</Text>
               </View>
             </View>
             
             <View style={styles.infoContainer}>
               <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
-              <Text style={styles.stats}>{item.views} views • {item.createdAt}</Text>
+              <Text style={styles.stats}>{formatViews(item.views || 0)} views • {formatTimeAgo(item.createdAt)}</Text>
               <View style={styles.visibilityRow}>
                 <Ionicons name="earth" size={14} color={colors.dark.textSecondary} />
                 <Text style={styles.visibilityText}>Public</Text>
@@ -40,8 +73,13 @@ export const YourVideosScreen: React.FC<any> = ({ navigation }) => {
             <TouchableOpacity style={styles.moreBtn}>
               <Ionicons name="ellipsis-vertical" size={20} color={colors.dark.text} />
             </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         )}
+        ListEmptyComponent={
+          <View style={{ padding: 40, alignItems: 'center' }}>
+            <Text style={{ color: colors.dark.textSecondary }}>No videos uploaded yet</Text>
+          </View>
+        }
       />
     </ScreenWrapper>
   );

@@ -34,6 +34,26 @@ const userSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
     },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    otp: {
+      type: String,
+    },
+    otpExpiry: {
+      type: Date,
+    },
+    resetOtp: {
+      type: String,
+    },
+    resetOtpExpiry: {
+      type: Date,
+    },
+    otpAttempts: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,
@@ -52,6 +72,18 @@ userSchema.pre('save', async function (next) {
 // Match user entered password to hashed password in database
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
+};
+
+// Match user entered OTP to hashed OTP in database
+userSchema.methods.matchOtp = async function (enteredOtp) {
+  if (!this.otp) return false;
+  return await bcrypt.compare(enteredOtp, this.otp);
+};
+
+// Match user entered reset OTP to hashed reset OTP in database
+userSchema.methods.matchResetOtp = async function (enteredOtp) {
+  if (!this.resetOtp) return false;
+  return await bcrypt.compare(enteredOtp, this.resetOtp);
 };
 
 const User = mongoose.model('User', userSchema);

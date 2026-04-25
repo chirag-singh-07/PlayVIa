@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,66 +6,84 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  FlatList,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Avatar } from "../components/Avatar";
 import { Button } from "../components/Button";
 import { VideoCard } from "../components/VideoCard";
-import { MOCK_DATA, layout } from "../constants";
+import { layout } from "../constants";
 import { colors, typography } from "../theme";
 import { ScreenWrapper } from "../components/ScreenWrapper";
+import { channelService } from "../services/channelService";
+import { formatViews, formatTimeAgo, formatDuration } from "../utils/videoUtils";
 
 export const ChannelProfileScreen: React.FC<any> = ({ navigation, route }) => {
+  const channelId = route.params?.channelId;
+  const [channelData, setChannelData] = useState<any>(null);
+  const [videos, setVideos] = useState<any[]>([]);
+  const [shorts, setShorts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"videos" | "shorts" | "about">(
     "videos",
   );
 
-  // In a real app, this would be fetched based on a channel ID
-  const channelData = {
-    name: "Frontend Mastery",
-    handle: "@frontendmastery",
-    subscribers: "1.2M",
-    videosCount: "345",
-    description:
-      "Welcome to Frontend Mastery! We build awesome apps with React Native, Expo, and more.",
-    banner:
-      "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=1000&auto=format&fit=crop",
-    avatar:
-      "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=100&auto=format&fit=crop",
-  };
+  useEffect(() => {
+    const fetchChannelInfo = async () => {
+      if (channelId) {
+        try {
+          setLoading(true);
+          const [info, channelVideos, channelShorts] = await Promise.all([
+            channelService.getChannelById(channelId),
+            channelService.getChannelVideos(channelId),
+            channelService.getChannelShorts(channelId)
+          ]);
+          setChannelData(info);
+          setVideos(channelVideos);
+          setShorts(channelShorts);
+        } catch (error) {
+          console.error('Error fetching channel info:', error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    fetchChannelInfo();
+  }, [channelId]);
+
+  if (loading) return <View style={styles.container}><Text style={{color: 'white', textAlign: 'center', marginTop: 100}}>Loading...</Text></View>;
+  if (!channelData) return <View style={styles.container}><Text style={{color: 'white', textAlign: 'center', marginTop: 100}}>Channel not found</Text></View>;
 
   const renderTabContent = () => {
     switch (activeTab) {
       case "videos":
-        return MOCK_DATA.videos.map((item) => (
+        return videos.map((item) => (
           <VideoCard
-            key={item.id}
+            key={item._id}
             title={item.title}
-            thumbnail={item.thumbnail}
-            channelName={item.channelName}
-            channelAvatar={item.channelAvatar}
-            views={item.views}
-            createdAt={item.createdAt}
-            duration={item.duration}
+            thumbnail={item.thumbnailUrl}
+            channelName={channelData.name}
+            channelAvatar={channelData.avatar}
+            views={formatViews(item.views || 0)}
+            createdAt={formatTimeAgo(item.createdAt)}
+            duration={formatDuration(item.duration)}
             onPress={() => navigation.navigate("VideoPlayer", { video: item })}
           />
         ));
       case "shorts":
         return (
           <View style={styles.shortsGrid}>
-            {MOCK_DATA.shorts.map((short) => (
+            {shorts.map((short) => (
               <TouchableOpacity
-                key={short.id}
+                key={short._id}
                 style={styles.shortItem}
                 onPress={() => navigation.navigate("Shorts")}
               >
                 <Image
-                  source={{ uri: short.videoUrl }}
+                  source={{ uri: short.videoUrl || short.thumbnailUrl }}
                   style={styles.shortImage}
                 />
                 <View style={styles.shortOverlay}>
-                  <Text style={styles.shortViews}>12K views</Text>
+                  <Text style={styles.shortViews}>{formatViews(short.views || 0)} views</Text>
                 </View>
               </TouchableOpacity>
             ))}
@@ -77,8 +95,8 @@ export const ChannelProfileScreen: React.FC<any> = ({ navigation, route }) => {
             <Text style={styles.aboutTitle}>Description</Text>
             <Text style={styles.aboutText}>{channelData.description}</Text>
             <View style={styles.aboutStats}>
-              <Text style={styles.aboutText}>Joined Jan 1, 2020</Text>
-              <Text style={styles.aboutText}>45,000,000 total views</Text>
+              <Text style={styles.aboutText}>Joined {new Date(channelData.createdAt).toLocaleDateString()}</Text>
+              <Text style={styles.aboutText}>{formatViews(channelData.totalViews || 0)} total views</Text>
             </View>
           </View>
         );

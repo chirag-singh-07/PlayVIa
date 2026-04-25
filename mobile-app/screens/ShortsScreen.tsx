@@ -1,62 +1,118 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, Image, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Dimensions, Image, TouchableOpacity, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { MOCK_DATA, layout } from '../constants';
+import { layout } from '../constants';
 import { colors, typography } from '../theme';
 import { Avatar } from '../components/Avatar';
+import { videoService } from '../services/videoService';
+import { formatViews } from '../utils/videoUtils';
+import { Video, ResizeMode } from 'expo-av';
 
-// For a real app, use FlatList with pagingEnabled or a specialized library like react-native-reanimated-carousel
-// Here we just show a static UI for the first short
+const { height: WINDOW_HEIGHT } = Dimensions.get('window');
 
 export const ShortsScreen: React.FC = () => {
-  const short = MOCK_DATA.shorts[0];
+  const [shorts, setShorts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeVideoIndex, setActiveVideoIndex] = useState(0);
+
+  useEffect(() => {
+    const fetchShorts = async () => {
+      try {
+        const data = await videoService.getShorts();
+        setShorts(data.videos || []);
+      } catch (error) {
+        console.error('Error fetching shorts:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchShorts();
+  }, []);
+
+  const renderItem = ({ item, index }: { item: any, index: number }) => {
+    const isActive = index === activeVideoIndex;
+
+    return (
+      <View style={styles.shortContainer}>
+        {isActive ? (
+          <Video
+            source={{ uri: item.videoUrl }}
+            style={styles.video}
+            resizeMode={ResizeMode.COVER}
+            shouldPlay={isActive}
+            isLooping
+            useNativeControls={false}
+          />
+        ) : (
+          <Image source={{ uri: item.thumbnailUrl }} style={styles.video} resizeMode="cover" />
+        )}
+        
+        <View style={styles.overlay} />
+
+        {/* Right Side Actions */}
+        <View style={styles.actionsContainer}>
+          <TouchableOpacity style={styles.actionItem}>
+            <Ionicons name="thumbs-up" size={32} color={colors.dark.white} />
+            <Text style={styles.actionText}>{formatViews(item.likesCount || 0)}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionItem}>
+            <Ionicons name="thumbs-down" size={32} color={colors.dark.white} />
+            <Text style={styles.actionText}>Dislike</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionItem}>
+            <Ionicons name="chatbubble-ellipses" size={32} color={colors.dark.white} />
+            <Text style={styles.actionText}>{formatViews(item.commentsCount || 0)}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionItem}>
+            <Ionicons name="share-social" size={32} color={colors.dark.white} />
+            <Text style={styles.actionText}>Share</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Bottom Info */}
+        <View style={styles.bottomInfo}>
+          <View style={styles.channelRow}>
+            <Avatar uri={item.channel?.avatar} size={40} />
+            <Text style={styles.channelName}>{item.channel?.name || 'Unknown'}</Text>
+            <TouchableOpacity style={styles.subscribeBtn}>
+              <Text style={styles.subscribeText}>Subscribe</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
+        </View>
+      </View>
+    );
+  };
+
+  if (loading) return (
+    <View style={[styles.container, { justifyContent: 'center' }]}>
+      <Text style={{color: 'white', textAlign: 'center'}}>Loading Shorts...</Text>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
-      {/* Video Player Placeholder */}
-      <Image source={{ uri: short.videoUrl }} style={styles.videoBackground} resizeMode="cover" />
+      <FlatList
+        data={shorts}
+        renderItem={renderItem}
+        keyExtractor={(item) => item._id}
+        pagingEnabled
+        showsVerticalScrollIndicator={false}
+        onMomentumScrollEnd={(e) => {
+          const index = Math.round(e.nativeEvent.contentOffset.y / WINDOW_HEIGHT);
+          setActiveVideoIndex(index);
+        }}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={3}
+        windowSize={5}
+      />
       
-      {/* Dark Gradient Overlay for readability (simulated) */}
-      <View style={styles.overlay} />
-
-      {/* Top Header */}
+      {/* Top Header Overlay */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Shorts</Text>
         <TouchableOpacity>
-          <Ionicons name="camera-outline" size={28} color={colors.dark.white} />
+          <Ionicons name="camera" size={28} color={colors.dark.white} />
         </TouchableOpacity>
-      </View>
-
-      {/* Right Side Actions */}
-      <View style={styles.actionsContainer}>
-        <View style={styles.actionItem}>
-          <Ionicons name="thumbs-up-outline" size={32} color={colors.dark.white} />
-          <Text style={styles.actionText}>{short.likes}</Text>
-        </View>
-        <View style={styles.actionItem}>
-          <Ionicons name="thumbs-down-outline" size={32} color={colors.dark.white} />
-          <Text style={styles.actionText}>Dislike</Text>
-        </View>
-        <View style={styles.actionItem}>
-          <Ionicons name="chatbubble-outline" size={32} color={colors.dark.white} />
-          <Text style={styles.actionText}>{short.comments}</Text>
-        </View>
-        <View style={styles.actionItem}>
-          <Ionicons name="arrow-redo-outline" size={32} color={colors.dark.white} />
-          <Text style={styles.actionText}>Share</Text>
-        </View>
-      </View>
-
-      {/* Bottom Info */}
-      <View style={styles.bottomInfo}>
-        <View style={styles.channelRow}>
-          <Avatar uri={short.channelAvatar} size={36} />
-          <Text style={styles.channelName}>{short.channelName}</Text>
-          <TouchableOpacity style={styles.subscribeBtn}>
-            <Text style={styles.subscribeText}>Subscribe</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.title} numberOfLines={2}>{short.title}</Text>
       </View>
     </View>
   );
@@ -67,28 +123,40 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.dark.black,
   },
-  videoBackground: {
+  shortContainer: {
+    height: WINDOW_HEIGHT,
+    width: Dimensions.get('window').width,
+    position: 'relative',
+  },
+  video: {
     ...StyleSheet.absoluteFillObject,
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(0,0,0,0.2)',
   },
   header: {
+    position: 'absolute',
+    top: 50,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: 50,
     paddingHorizontal: layout.spacing.md,
+    zIndex: 10,
   },
   headerTitle: {
     color: colors.dark.white,
     fontSize: typography.sizes.xl,
     fontWeight: typography.weights.bold as '700',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 10,
   },
   actionsContainer: {
     position: 'absolute',
     right: 16,
-    bottom: 120,
+    bottom: 150,
     alignItems: 'center',
   },
   actionItem: {
@@ -100,12 +168,15 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.sm,
     marginTop: 4,
     fontWeight: typography.weights.medium as '500',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 10,
   },
   bottomInfo: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 100,
     left: 16,
-    right: 80, // give space for actions
+    right: 80,
   },
   channelRow: {
     flexDirection: 'row',
@@ -118,15 +189,18 @@ const styles = StyleSheet.create({
     fontWeight: typography.weights.medium as '500',
     marginLeft: layout.spacing.sm,
     marginRight: layout.spacing.md,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 10,
   },
   subscribeBtn: {
-    backgroundColor: colors.dark.white,
+    backgroundColor: colors.dark.primary,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: layout.borderRadius.full,
+    borderRadius: 4,
   },
   subscribeText: {
-    color: colors.dark.black,
+    color: colors.dark.white,
     fontSize: typography.sizes.sm,
     fontWeight: typography.weights.bold as '700',
   },
@@ -134,5 +208,8 @@ const styles = StyleSheet.create({
     color: colors.dark.white,
     fontSize: typography.sizes.md,
     lineHeight: 20,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 10,
   },
 });

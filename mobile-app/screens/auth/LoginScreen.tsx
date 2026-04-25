@@ -15,6 +15,9 @@ import { useFormValidation } from '../../hooks/useFormValidation';
 import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import { ScreenWrapper } from '../../components/ScreenWrapper';
 
+import { useAuth } from '../../context/AuthContext';
+import { Alert } from 'react-native';
+
 export const LoginScreen: React.FC<any> = ({ navigation }) => {
   const { theme } = useTheme();
   const themeColors = theme === 'dark' ? colors.dark : colors.light;
@@ -28,14 +31,19 @@ export const LoginScreen: React.FC<any> = ({ navigation }) => {
   const isEmailValid = email.length > 0 ? validateEmail(email) : undefined;
   const isFormValid = isEmailValid && password.length >= 6;
 
-  const handleLogin = () => {
+  const { login: authLogin } = useAuth();
+
+  const handleLogin = async () => {
     if (!isFormValid) return;
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      await authLogin(email, password);
+      // AuthProvider will automatically switch to AppNavigator
+    } catch (error: any) {
       setIsLoading(false);
-      // navigation.replace('Main'); // Would navigate to main app here
-    }, 1500);
+      const errorMsg = error.response?.data?.message || 'Failed to login. Please check your credentials.';
+      Alert.alert('Login Failed', errorMsg);
+    }
   };
 
   return (

@@ -1,13 +1,60 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { InputField } from '../components/InputField';
 import { Button } from '../components/Button';
 import { colors, typography } from '../theme';
 import { layout } from '../constants';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '../components/ScreenWrapper';
+import { videoService } from '../services/videoService';
 
-export const UploadScreen: React.FC = () => {
+export const UploadScreen: React.FC<any> = ({ navigation }) => {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [videoFile, setVideoFile] = useState<any>(null);
+  const [thumbnailFile, setThumbnailFile] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleUpload = async () => {
+    if (!title || !videoFile) {
+      Alert.alert('Error', 'Please provide at least a title and a video file.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('description', description);
+      
+      // Assuming videoFile and thumbnailFile are objects from an image picker
+      // { uri, name, type }
+      formData.append('video', {
+        uri: videoFile.uri,
+        name: videoFile.name || 'video.mp4',
+        type: videoFile.type || 'video/mp4',
+      } as any);
+
+      if (thumbnailFile) {
+        formData.append('thumbnail', {
+          uri: thumbnailFile.uri,
+          name: thumbnailFile.name || 'thumbnail.jpg',
+          type: thumbnailFile.type || 'image/jpeg',
+        } as any);
+      }
+
+      await videoService.uploadVideo(formData);
+      setIsLoading(false);
+      Alert.alert('Success', 'Video uploaded successfully!', [
+        { text: 'OK', onPress: () => navigation.navigate('Home') }
+      ]);
+    } catch (error: any) {
+      setIsLoading(false);
+      console.error('Upload error:', error);
+      Alert.alert('Upload Failed', error.response?.data?.message || 'Failed to upload video.');
+    }
+  };
+
   return (
     <ScreenWrapper withKeyboardAvoidView>
       <View style={styles.header}>
@@ -16,14 +63,16 @@ export const UploadScreen: React.FC = () => {
 
       <ScrollView contentContainerStyle={styles.content}>
         {/* Video Picker Placeholder */}
-        <View style={styles.uploadPlaceholder}>
+        <TouchableOpacity style={styles.uploadPlaceholder} onPress={() => { /* Implement picker */ }}>
           <Ionicons name="cloud-upload-outline" size={64} color={colors.dark.textSecondary} />
-          <Text style={styles.uploadText}>Tap to select a video</Text>
-        </View>
+          <Text style={styles.uploadText}>{videoFile ? 'Video selected' : 'Tap to select a video'}</Text>
+        </TouchableOpacity>
 
         <InputField
           label="Title"
           placeholder="Create a title"
+          value={title}
+          onChangeText={setTitle}
         />
 
         <InputField
@@ -32,16 +81,14 @@ export const UploadScreen: React.FC = () => {
           multiline
           numberOfLines={4}
           style={styles.textArea}
-        />
-
-        <InputField
-          label="Visibility"
-          placeholder="Public"
+          value={description}
+          onChangeText={setDescription}
         />
 
         <Button
           title="Upload Video"
-          onPress={() => {}}
+          onPress={handleUpload}
+          isLoading={isLoading}
           style={styles.uploadBtn}
         />
       </ScrollView>

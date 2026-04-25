@@ -1,0 +1,201 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* PlayVia Design System — YouTube-style red, Inter, full dark mode */
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 6%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 6%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 6%;
+
+    /* PlayVia red */
+    --primary: 0 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --primary-dark: 0 100% 40%;
+    --primary-glow: 16 100% 50%;
+
+    --secondary: 0 0% 97.6%;
+    --secondary-foreground: 0 0% 6%;
+
+    --muted: 0 0% 97.6%;
+    --muted-foreground: 0 0% 38%;
+
+    --accent: 0 0% 97.6%;
+    --accent-foreground: 0 0% 6%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 45%;
+    --warning: 38 92% 50%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 0 100% 50%;
+
+    --radius: 0.75rem;
+
+    --gradient-brand: linear-gradient(135deg, hsl(0 100% 50%), hsl(16 100% 50%));
+    --gradient-brand-dark: linear-gradient(135deg, hsl(0 100% 40%), hsl(0 100% 50%));
+    --gradient-hero: radial-gradient(ellipse at top, hsl(0 100% 50% / 0.15), transparent 60%);
+
+    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.05);
+    --shadow-card: 0 4px 24px -8px hsl(0 0% 0% / 0.08);
+    --shadow-elevated: 0 16px 48px -12px hsl(0 0% 0% / 0.18);
+    --shadow-brand: 0 12px 32px -8px hsl(0 100% 50% / 0.4);
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 0 100% 50%;
+  }
+
+  .dark {
+    --background: 0 0% 6%;
+    --foreground: 0 0% 100%;
+
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 100%;
+
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 0 100% 55%;
+    --primary-foreground: 0 0% 100%;
+    --primary-dark: 0 100% 45%;
+    --primary-glow: 16 100% 55%;
+
+    --secondary: 0 0% 14%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 64%;
+
+    --accent: 0 0% 14%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 0 100% 55%;
+
+    --gradient-hero: radial-gradient(ellipse at top, hsl(0 100% 50% / 0.25), transparent 60%);
+    --shadow-card: 0 4px 24px -8px hsl(0 0% 0% / 0.5);
+
+    --sidebar-background: 0 0% 8%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 0 100% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 14%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 18%;
+    --sidebar-ring: 0 100% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Hide scrollbars globally while preserving scroll functionality */
+  html,
+  body,
+  * {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+  }
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar,
+  *::-webkit-scrollbar {
+    display: none; /* Chrome/Safari/Webkit */
+    width: 0;
+    height: 0;
+  }
+}
+
+@layer utilities {
+  .bg-gradient-brand {
+    background: var(--gradient-brand);
+  }
+  .bg-gradient-hero {
+    background: var(--gradient-hero);
+  }
+  .text-gradient-brand {
+    background: var(--gradient-brand);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  .shadow-brand {
+    box-shadow: var(--shadow-brand);
+  }
+  .shadow-elevated {
+    box-shadow: var(--shadow-elevated);
+  }
+  .glass {
+    @apply backdrop-blur-xl bg-background/70 border-b border-border/50;
+  }
+}
+
+@layer components {
+  .prose-content {
+    @apply text-foreground/90 leading-relaxed;
+  }
+  .prose-content h2 {
+    @apply text-2xl md:text-3xl font-extrabold tracking-tight mt-10 mb-4 text-foreground;
+  }
+  .prose-content h3 {
+    @apply text-xl font-bold mt-8 mb-3 text-foreground;
+  }
+  .prose-content p {
+    @apply my-4 text-muted-foreground;
+  }
+  .prose-content ul {
+    @apply my-4 space-y-2 list-disc list-outside pl-5 text-muted-foreground;
+  }
+  .prose-content li {
+    @apply leading-relaxed;
+  }
+  .prose-content strong {
+    @apply font-semibold text-foreground;
+  }
+  .prose-content a {
+    @apply underline-offset-2;
+  }
+  .prose-content blockquote {
+    @apply text-foreground/90;
+  }
+  .prose-content .not-prose,
+  .prose-content .not-prose * {
+    /* opt-out container */
+  }
+  .prose-content .not-prose p {
+    @apply my-0 text-inherit;
+  }
+}

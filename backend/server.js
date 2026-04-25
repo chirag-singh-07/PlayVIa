@@ -17,6 +17,7 @@ const historyRoutes = require('./routes/historyRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const earningsRoutes = require('./routes/earningsRoutes');
 const referralRoutes = require('./routes/referralRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 // Load env vars
 dotenv.config();
@@ -44,6 +45,7 @@ app.use('/api/history', historyRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/earnings', earningsRoutes);
 app.use('/api/referral', referralRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Initialize background jobs
 const initCronJobs = require('./jobs/cronJobs');

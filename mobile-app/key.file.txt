@@ -1,0 +1,7 @@
+Keystore file: @growthnations-developer__playvia.jks
+Alias: f4b1a24ee376aa688bb33fdbbf3b04bc
+Location: mobile-app folder
+
+
+
+

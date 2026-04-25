@@ -1,31 +1,74 @@
-You deleted `node_modules` so `expo` itself is gone. Fix:
+🎉 **Your request is submitted successfully!**
+
+It says **"There is a pending request for resetting the upload key of this app"** ✅
 
 ---
 
-**Step 1 — Install expo first:**
+**What happens next:**
+
+| Timeline | Action |
+|---|---|
+| Now | Request submitted ✅ |
+| 1-2 business days | Google reviews and approves |
+| After approval | You upload new AAB with new keystore |
+
+---
+
+**While waiting for Google — do these things:**
+
+**Build your production AAB now:**
 ```bash
-npm install expo --legacy-peer-deps
+npx eas build -p android --profile production
+```
+
+**Save your keystore password safely** — you'll need it. Check EAS for it:
+```bash
+npx eas credentials
+```
+
+**Save these details somewhere safe:**
+```
+Keystore file: @growthnations-developer__playvia.jks
+Alias: f4b1a24ee376aa688bb33fdbbf3b04bc
+Location: mobile-app folder
 ```
 
 ---
 
-**Step 2 — Now run the fix command:**
-```bash
-npx expo install --fix
-```
+**Once Google approves (1-2 days):**
+1. Go back to App Integrity page
+2. Upload your new AAB
+3. Your app is updated on Play Store ✅
 
 ---
 
-**Step 3 — Install remaining packages:**
+**Now let's focus on building your app!**
+
+Want to start the APK preview build to test your UI while waiting?
 ```bash
-npm install --legacy-peer-deps
+npx eas build -p android --profile preview
 ```
 
----
 
-**Step 4 — Clear cache and start:**
-```bash
-npx expo start --clear
-```
 
-That's it. The error just means `node_modules` was empty so even `expo` CLI couldn't load — installing it first unblocks everything.
+
+
+
+
+
+
+
+
+
+
+
+
+Action plan right now:
+Build your production AAB today:
+bashnpx eas build -p android --profile production
+On April 27 — upload the AAB to Play Store:
+
+Go to Play Console
+Production → Create new release
+Upload your AAB
+Submit ✅

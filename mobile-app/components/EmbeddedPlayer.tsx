@@ -7,7 +7,12 @@ import {
     Text,
     TouchableOpacity,
 } from 'react-native';
-import { WebView } from 'react-native-webview';
+// FIXED: replaced expo-video with 
+// expo-av
+import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import * as WebBrowser from 'expo-web-browser';
+// FIXED: replaced react-native-webview with 
+// expo-web-browser
 import * as Linking from 'expo-linking';
 import { COLORS, SIZES } from '@/constants/theme';
 import { isYouTubeUrl, isTeraboxUrl, isVimeoUrl, isDailymotionUrl } from '@/utils/videoUtils';
@@ -29,6 +34,21 @@ const isValidHttpUrl = (url: string | null): boolean => {
 const EmbeddedPlayer: React.FC<EmbeddedPlayerProps> = ({ videoUri }) => {
     const [hasError, setHasError] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    
+    // FIXED: implemented expo-av state pattern
+    const videoRef = React.useRef<Video>(null);
+    const [status, setStatus] = useState<AVPlaybackStatus>({} as AVPlaybackStatus);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [isMuted, setIsMuted] = useState(false);
+
+    const togglePlay = async () => {
+        if (isPlaying) {
+            await videoRef.current?.pauseAsync();
+        } else {
+            await videoRef.current?.playAsync();
+        }
+        setIsPlaying(!isPlaying);
+    };
 
     useEffect(() => {
         setHasError(false);
@@ -178,37 +198,51 @@ const EmbeddedPlayer: React.FC<EmbeddedPlayerProps> = ({ videoUri }) => {
         }
     }
 
-    // Mobile rendering - use WebView for all videos
+    // Mobile rendering
+    // FIXED: replaced react-native-webview with expo-web-browser for social links
+    if (isYouTube || isVimeo || isDailymotion || isTerabox) {
+        return (
+            <View style={styles.container}>
+                <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>Open in Browser</Text>
+                    <Text style={styles.errorSubtext}>
+                        This video platform requires a web browser for playback.
+                    </Text>
+                    <TouchableOpacity
+                        style={styles.openBrowserButton}
+                        onPress={() => WebBrowser.openBrowserAsync(videoUri)}
+                    >
+                        <Text style={styles.openBrowserButtonText}>Open in Browser</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        );
+    }
+
+    // FIXED: replaced expo-video with expo-av for direct video links
     return (
         <View style={styles.container}>
-            {isLoading && (
+            <Video
+                ref={videoRef}
+                source={{ uri: videoUri }}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode={ResizeMode.CONTAIN}
+                shouldPlay={false}
+                isMuted={isMuted}
+                isLooping={false}
+                useNativeControls
+                onPlaybackStatusUpdate={(status) => {
+                    setStatus(status);
+                    if (status.isLoaded) {
+                        setIsPlaying(status.isPlaying);
+                    }
+                }}
+            />
+            {isLoading && !status.isLoaded && (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color={COLORS.primary} />
-                    <Text style={styles.loadingText}>Loading video...</Text>
                 </View>
             )}
-            <WebView
-                source={{ uri: videoUri }}
-                style={styles.webView}
-                allowsFullscreenVideo={true}
-                mediaPlaybackRequiresUserAction={false}
-                javaScriptEnabled={true}
-                domStorageEnabled={true}
-                startInLoadingState={true}
-                onLoadStart={() => setIsLoading(true)}
-                onLoadEnd={() => setIsLoading(false)}
-                onError={(syntheticEvent: any) => {
-                    const { nativeEvent } = syntheticEvent;
-                    console.error('WebView error: ', nativeEvent);
-                    setIsLoading(false);
-                    setHasError(true);
-                }}
-                renderLoading={() => (
-                    <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color={COLORS.primary} />
-                    </View>
-                )}
-            />
         </View>
     );
 };

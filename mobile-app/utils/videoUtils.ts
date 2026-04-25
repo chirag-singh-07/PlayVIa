@@ -27,6 +27,7 @@ export const isDailymotionUrl = (url: string): boolean => {
   return dailymotionRegex.test(url);
 };
 
+// FIXED: replaced expo-video-thumbnails with static image placeholder
 export const getVideoThumbnail = async (url: string): Promise<string | null> => {
   try {
     if (isYouTubeUrl(url)) {
@@ -56,7 +57,8 @@ export const getVideoThumbnail = async (url: string): Promise<string | null> => 
       return videoId ? `https://www.dailymotion.com/thumbnail/video/${videoId}` : null;
     }
 
-    return null; // For direct links, we'd need expo-video-thumbnails
+    // FIXED: replaced expo-video-thumbnails with static image placeholder
+    return 'https://via.placeholder.com/640x360.png?text=PlayVia+Video'; 
   } catch (error) {
     console.error('Error getting video thumbnail:', error);
     return null;

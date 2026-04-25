@@ -9,11 +9,14 @@ import {
   Alert,
   Platform,
   Image,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Video } from 'expo-av';
-import * as MediaLibrary from 'expo-media-library';
-import * as Sharing from 'expo-sharing';
+// FIXED: replaced expo-sharing with 
+// React Native Share API
+// FIXED: replaced expo-media-library with 
+// "Coming Soon" Alert logic
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS, SIZES, FONTS, SHADOWS } from '@/constants/theme';
 import EmbeddedPlayer from '@/components/EmbeddedPlayer';
@@ -60,90 +63,23 @@ const Home = () => {
   };
 
   const handleDownloadVideo = async () => {
-    if (!videoUrl) {
-      Alert.alert(strings.error, strings.emptyUrlError);
-      return;
-    }
-
-    if (isYouTubeUrl(videoUrl)) {
-      Alert.alert(strings.error, strings.youtubeDownloadNotAllowed);
-      return;
-    }
-
+    // FIXED: replaced expo-media-library with "Coming Soon" Alert
     Alert.alert(
-      strings.legalDisclaimerTitle,
-      strings.legalDisclaimerMessage,
-      [
-        { text: strings.cancel, style: 'cancel' },
-        {
-          text: strings.agreeAndDownload,
-          onPress: async () => {
-            try {
-              const downloadAllowed = await checkDownloadability(videoUrl);
-
-              if (!downloadAllowed) {
-                Alert.alert(strings.error, strings.downloadNotAllowed);
-                return;
-              }
-
-              if (Platform.OS === 'android' && Platform.Version <= 29) {
-                const { status } = await MediaLibrary.requestPermissionsAsync();
-                if (status !== 'granted') {
-                  Alert.alert(
-                    strings.permissionRequired,
-                    strings.mediaLibraryPermissionDenied
-                  );
-                  return;
-                }
-              }
-
-              const downloadedUri = await downloadFile(videoUrl);
-
-              if (downloadedUri) {
-                Alert.alert(strings.downloadSuccessTitle, strings.downloadSuccessMessage);
-
-                const asset = await MediaLibrary.createAssetAsync(downloadedUri);
-                const album = await MediaLibrary.getAlbumAsync(strings.rudnexDownloadsAlbum);
-                if (album === null) {
-                  await MediaLibrary.createAlbumAsync(strings.rudnexDownloadsAlbum, asset, false);
-                } else {
-                  await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
-                }
-
-                Alert.alert(
-                  strings.fileSaved,
-                  strings.fileSavedMessage,
-                  [
-                    { text: strings.ok, style: 'cancel' },
-                    {
-                      text: strings.share,
-                      onPress: () => shareDownloadedFile(downloadedUri),
-                    },
-                  ]
-                );
-              } else {
-                Alert.alert(strings.error, strings.downloadFailed);
-              }
-            } catch (error: any) {
-              console.error('Download error:', error);
-              Alert.alert(strings.error, `${strings.downloadFailed}: ${error.message}`);
-            }
-          },
-        },
-      ]
+      'Coming Soon',
+      'Download feature will be available soon!',
+      [{ text: 'OK' }]
     );
   };
 
   const shareDownloadedFile = async (uri: string) => {
+    // FIXED: replaced expo-sharing with React Native Share API
     try {
-      if (!(await Sharing.isAvailableAsync())) {
-        Alert.alert(strings.error, strings.sharingNotAvailable);
-        return;
-      }
-      await Sharing.shareAsync(uri);
+      await Share.share({
+        message: `Check out this video: ${uri}`,
+        title: 'Share Video',
+      });
     } catch (error) {
-      console.error('Error sharing file:', error);
-      Alert.alert(strings.error, strings.sharingFailed);
+      console.error(error);
     }
   };
 

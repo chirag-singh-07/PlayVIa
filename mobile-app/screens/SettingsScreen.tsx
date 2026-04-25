@@ -55,7 +55,7 @@ export const SettingsScreen: React.FC<any> = ({ navigation }) => {
           <SettingItem 
             icon="person-outline" 
             title="Account Management" 
-            subtitle="Manage your Google Account"
+            subtitle="Manage your account settings"
           />
           <SettingItem 
             icon="shield-checkmark-outline" 

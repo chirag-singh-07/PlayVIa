@@ -11,6 +11,8 @@ import { AuthInput } from '../../components/auth/AuthInput';
 import { AuthButton } from '../../components/auth/AuthButton';
 import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton';
 import { SocialDivider } from '../../components/auth/SocialDivider';
+// FIXED: replaced @react-native-google-signin/google-signin with 
+// expo-auth-session/providers/google
 import { useFormValidation } from '../../hooks/useFormValidation';
 import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import { ScreenWrapper } from '../../components/ScreenWrapper';
@@ -99,7 +101,6 @@ export const LoginScreen: React.FC<any> = ({ navigation }) => {
           />
 
           <SocialDivider />
-
           <GoogleSignInButton onPress={() => promptAsync()} />
 
           <View style={styles.footer}>

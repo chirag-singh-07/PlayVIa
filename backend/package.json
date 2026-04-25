@@ -2,11 +2,13 @@
   "name": "backend",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon server.js",
-    "start": "node server.js"
+    "prebuild": "rimraf dist",
+    "build": "esbuild server.js --bundle --platform=node --target=node20 --outfile=dist/server.js --external:bcrypt",
+    "start": "node dist/server.js"
   },
   "keywords": [],
   "author": "",
@@ -28,5 +30,9 @@
     "multer-storage-cloudinary": "^4.0.0",
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.6"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.0",
+    "rimraf": "^6.1.3"
   }
 }

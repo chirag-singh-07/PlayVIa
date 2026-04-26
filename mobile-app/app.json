@@ -17,21 +17,14 @@
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTablet": true,
-      "infoPlist": {
-        "GADApplicationIdentifier": "ca-app-pub-3940256099942544~1458002511",
-        "SKAdNetworkItems": [
-          { "SKAdNetworkIdentifier": "cstr6suwn9.skadnetwork" }
-        ]
-      }
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.rudnex.app",
-      "googleServicesFile": "./google-services.json"
+      "package": "com.rudnex.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"

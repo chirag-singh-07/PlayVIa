@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -40,7 +41,20 @@ import {
   AccessibilityPage,
 } from "./pages/legal/LegalPage";
 
-const queryClient = new QueryClient();
+// Don't retry on 4xx client errors (e.g. 404 = no channel yet, 403 = forbidden)
+// Only retry on network failures or 5xx server errors
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error: any) => {
+        const status = error?.response?.status;
+        if (status && status >= 400 && status < 500) return false;
+        return failureCount < 2;
+      },
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

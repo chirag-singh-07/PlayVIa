@@ -52,16 +52,17 @@ export async function login(email: string, password: string): Promise<AuthUser> 
   try {
     const response = await api.post('/auth/login', { email, password });
     const { token, ...userData } = response.data;
-    
+
     const user: AuthUser = {
       id: userData._id,
-      name: userData.name,
+      // Backend login returns 'username' not 'name'. Use name if present, else username.
+      name: userData.name || userData.username || email.split('@')[0],
       email: userData.email,
-      role: userData.role || "creator",
+      role: userData.role || "user",
       avatar: userData.avatar,
       token,
     };
-    
+
     setUser(user);
     return user;
   } catch (error: any) {

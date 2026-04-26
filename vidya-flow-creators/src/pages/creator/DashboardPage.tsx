@@ -7,10 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { useCreatorStats, useCreatorAnalytics } from "@/hooks/useCreator";
 
 export default function DashboardPage() {
-  const { data: statsData, isLoading: statsLoading } = useCreatorStats();
+  const { data: statsData, isLoading: statsLoading, error: statsError } = useCreatorStats();
   const { data: analyticsData, isLoading: analyticsLoading } = useCreatorAnalytics();
 
-  if (statsLoading || analyticsLoading) {
+  // Show spinner only on the initial load — not on error
+  if ((statsLoading || analyticsLoading) && !statsError) {
     return (
       <div className="h-[80vh] flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

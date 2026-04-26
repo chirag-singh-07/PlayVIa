@@ -28,6 +28,7 @@ const {
   getStorageStats,
   getWithdrawals,
   updateWithdrawalStatus,
+  uploadVideoByAdmin,
 } = require('../controllers/adminController');
 const { protect, admin } = require('../middleware/authMiddleware');
 const { upload } = require('../config/cloudinary');

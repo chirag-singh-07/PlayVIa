@@ -306,6 +306,70 @@ const getUserProfile = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Auth with Google
+// @route   POST /api/auth/google
+// @access  Public
+const googleLogin = asyncHandler(async (req, res) => {
+  const { accessToken } = req.body;
+
+  if (!accessToken) {
+    res.status(400);
+    throw new Error('Access token is required');
+  }
+
+  try {
+    // Verify token with Google
+    const { data: googleUser } = await axios.get(
+      `https://www.googleapis.com/oauth2/v3/userinfo`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+
+    if (!googleUser || !googleUser.email) {
+      res.status(400);
+      throw new Error('Invalid Google token');
+    }
+
+    // Find or create user
+    let user = await User.findOne({ email: googleUser.email.toLowerCase() });
+
+    if (!user) {
+      // Auto-register new Google user
+      const randomPassword = crypto.randomBytes(16).toString('hex');
+      const baseUsername = (googleUser.name || googleUser.email.split('@')[0])
+        .toLowerCase()
+        .replace(/\s+/g, '_')
+        .replace(/[^a-z0-9_]/g, '');
+      
+      const uniqueUsername = `${baseUsername}_${crypto.randomBytes(3).toString('hex')}`;
+      const referralCode = crypto.randomBytes(4).toString('hex').toUpperCase();
+
+      user = await User.create({
+        name: googleUser.name || uniqueUsername,
+        username: uniqueUsername,
+        email: googleUser.email.toLowerCase(),
+        password: randomPassword,
+        avatar: googleUser.picture,
+        isVerified: true, // Google emails are pre-verified
+        referralCode,
+      });
+    }
+
+    res.json({
+      _id: user._id,
+      name: user.name || user.username,
+      username: user.username,
+      email: user.email,
+      avatar: user.avatar,
+      role: user.role,
+      token: generateToken(user._id),
+    });
+  } catch (error) {
+    console.error('Google Auth Error:', error.response?.data || error.message);
+    res.status(401);
+    throw new Error('Google authentication failed');
+  }
+});
+
 module.exports = {
   registerUser,
   loginUser,

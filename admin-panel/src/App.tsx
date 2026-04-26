@@ -36,6 +36,7 @@ import AdminUsersPage from "./pages/admin/AdminUsersPage";
 import LogsPage from "./pages/admin/LogsPage";
 import ProfilePage from "./pages/admin/ProfilePage";
 import InboxPage from "./pages/admin/InboxPage";
+import StoragePage from "./pages/admin/StoragePage";
 
 import NotFound from "./pages/NotFound";
 
@@ -85,6 +86,7 @@ const App = () => (
               <Route path="logs" element={<LogsPage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="inbox" element={<InboxPage />} />
+              <Route path="storage" element={<StoragePage />} />
             </Route>
 
             <Route path="*" element={<NotFound />} />

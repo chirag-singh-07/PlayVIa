@@ -14,6 +14,7 @@ import { formatViews, formatTimeAgo, formatDuration } from '../utils/videoUtils'
 import { Alert, Share } from 'react-native';
 
 import { Video, ResizeMode } from 'expo-av';
+import { CommentsModal } from '../components/CommentsModal';
 
 export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
   const { isAuthenticated, user: currentUser } = useAuth();
@@ -30,6 +31,18 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
   const [isLandscape, setIsLandscape] = useState(Dimensions.get('window').width > Dimensions.get('window').height);
   const controlsOpacity = useRef(new Animated.Value(1)).current;
   const hideControlsTimeout = useRef<any>(null);
+  const [commentText, setCommentText] = useState('');
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [showQualityModal, setShowQualityModal] = useState(false);
+  const [quality, setQuality] = useState('Auto');
+  const [activeUrl, setActiveUrl] = useState(video.videoUrl);
+  const [isCommentsModalVisible, setIsCommentsModalVisible] = useState(false);
+
+  const qualities = ['Auto', '1080p', '720p', '480p', '360p', '240p', '144p'];
+
+  useEffect(() => {
+    setActiveUrl(video.videoUrl);
+  }, [video.videoUrl]);
 
   useEffect(() => {
     const fetchVideoDetails = async () => {
@@ -44,8 +57,8 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
             historyService.addToHistory(initialVideo._id).catch(err => console.error('Error adding to history:', err));
           }
 
-          const videoComments = await commentService.getVideoComments(initialVideo._id);
-          setComments(videoComments);
+          const data = await commentService.getVideoComments(initialVideo._id);
+          setComments(data.comments || []);
         } catch (error) {
           console.error('Error fetching video details:', error);
         } finally {
@@ -56,6 +69,60 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
 
     fetchVideoDetails();
   }, [initialVideo?._id]);
+
+  const handleAddComment = async () => {
+    if (!isAuthenticated) {
+      Alert.alert('Login Required', 'Please login to comment.');
+      return;
+    }
+    if (!commentText.trim()) return;
+
+    setIsSubmittingComment(true);
+    try {
+      const newComment = await commentService.addComment(video._id, commentText);
+      // Backend returns single comment, we need to populate user for local state
+      const populatedComment = {
+        ...newComment,
+        user: {
+          _id: currentUser?._id,
+          username: currentUser?.username,
+          avatar: currentUser?.avatar
+        }
+      };
+      setComments([populatedComment, ...comments]);
+      setCommentText('');
+    } catch (error) {
+      console.error('Error adding comment:', error);
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
+
+  const handleQualityChange = (q: string) => {
+    setQuality(q);
+    setShowQualityModal(false);
+    
+    if (q === 'Auto') {
+      setActiveUrl(video.videoUrl);
+      return;
+    }
+
+    // Cloudinary dynamic quality/scaling
+    // Example: .../upload/v123/video.mp4 -> .../upload/q_auto,w_1280/v123/video.mp4
+    if (video.videoUrl?.includes('cloudinary.com')) {
+      const parts = video.videoUrl.split('/upload/');
+      let transformation = '';
+      switch(q) {
+        case '1080p': transformation = 'q_auto,w_1920'; break;
+        case '720p': transformation = 'q_auto,w_1280'; break;
+        case '480p': transformation = 'q_auto,w_854'; break;
+        case '360p': transformation = 'q_auto,w_640'; break;
+        case '240p': transformation = 'q_auto,w_426'; break;
+        case '144p': transformation = 'q_auto,w_256'; break;
+      }
+      setActiveUrl(`${parts[0]}/upload/${transformation}/${parts[1]}`);
+    }
+  };
 
   useEffect(() => {
     const updateOrientation = () => {
@@ -145,17 +212,39 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
         {(() => {
           const VideoPlayer = Video as any;
           return (
-            <VideoPlayer
-              ref={videoRef}
-              source={{ uri: video.videoUrl }}
-              style={styles.video}
-              resizeMode={ResizeMode.CONTAIN}
-              shouldPlay={true}
-              onPlaybackStatusUpdate={(status: any) => setStatus(() => status)}
+            activeUrl && activeUrl.trim() !== '' ? (
+              <VideoPlayer
+                ref={videoRef}
+                source={{ uri: activeUrl }}
+                style={styles.video}
+                resizeMode={ResizeMode.CONTAIN}
+                shouldPlay={true}
+                onPlaybackStatusUpdate={(newStatus: any) => {
+                setStatus(newStatus);
+                // Auto-update duration on server if it's missing (0)
+                if (newStatus.isLoaded && newStatus.durationMillis && (!video.duration || video.duration === 0)) {
+                  const actualDuration = Math.round(newStatus.durationMillis / 1000);
+                  if (actualDuration > 0) {
+                    setVideo((prev: any) => ({ ...prev, duration: actualDuration }));
+                    videoService.updateVideoDuration(video._id, actualDuration).catch(() => {});
+                  }
+                }
+              }}
               useNativeControls={false}
             />
+            ) : null
           );
         })()}
+
+        {/* Real YouTube-style Progress Bar at the very bottom of video */}
+        <View style={styles.progressBarBackground}>
+          <View 
+            style={[
+              styles.progressBarForeground, 
+              { width: `${((status?.positionMillis || 0) / (status?.durationMillis || 1)) * 100}%` }
+            ]} 
+          />
+        </View>
         
         {showControls && (
           <Animated.View style={[styles.playerOverlay, { opacity: controlsOpacity }]}>
@@ -168,7 +257,9 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
               <View style={styles.rightTopControls}>
                 <Ionicons name="tv-outline" size={24} color={colors.dark.white} style={styles.controlIcon as any} />
                 <Ionicons name="chatbox-outline" size={24} color={colors.dark.white} style={styles.controlIcon as any} />
-                <Ionicons name="settings-outline" size={24} color={colors.dark.white} style={styles.controlIcon as any} />
+                <TouchableOpacity onPress={() => setShowQualityModal(true)}>
+                  <Ionicons name="settings-outline" size={24} color={colors.dark.white} style={styles.controlIcon as any} />
+                </TouchableOpacity>
               </View>
             </View>
             
@@ -186,7 +277,7 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
             
             <View style={styles.bottomControls}>
               <Text style={styles.timeText}>
-                {formatDuration(status.positionMillis / 1000)} / {formatDuration(video.duration || status.durationMillis / 1000)}
+                {formatDuration((status?.positionMillis || 0) / 1000)} / {formatDuration(video.duration || (status?.durationMillis || 0) / 1000)}
               </Text>
               <TouchableOpacity onPress={() => setIsLandscape(!isLandscape)}>
                 <Ionicons name="expand" size={20} color={colors.dark.white} />
@@ -207,13 +298,20 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
 
           {/* Channel Info & Subscribe */}
           <View style={styles.channelSection}>
-            <View style={styles.channelLeft}>
+            <TouchableOpacity 
+              style={styles.channelLeft}
+              onPress={() => {
+                if (video.channel?._id) {
+                  navigation.navigate('ChannelProfile', { channelId: video.channel._id });
+                }
+              }}
+            >
               <Avatar uri={video.channel?.avatar} size={40} />
               <View style={styles.channelText}>
                 <Text style={styles.channelName}>{video.channel?.name || 'Unknown Channel'}</Text>
                 <Text style={styles.subscribers}>{formatViews(video.channel?.subscribersCount || 0)} subscribers</Text>
               </View>
-            </View>
+            </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.subscribeBtn, isSubscribed && { backgroundColor: colors.dark.surface }]} 
               onPress={toggleSubscribe}
@@ -252,24 +350,54 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
             </TouchableOpacity>
           </ScrollView>
 
-          {/* Comments Teaser */}
-          <View style={styles.commentsSection}>
+          {/* Comments Section */}
+          <TouchableOpacity 
+            style={styles.commentsSection} 
+            onPress={() => setIsCommentsModalVisible(true)}
+          >
             <View style={styles.commentsHeader}>
               <Text style={styles.commentsTitle}>Comments</Text>
-              <Text style={styles.commentsCount}>{formatViews(comments.length)}</Text>
+              <Text style={styles.commentsCount}>{comments.length}</Text>
             </View>
-            {comments.length > 0 ? (
-              <View style={styles.commentPreview}>
-                <Avatar uri={comments[0].user?.avatar} size={24} />
-                <Text style={styles.commentText} numberOfLines={2}>
-                  {comments[0].text}
-                </Text>
+
+            <View style={styles.commentInputRow}>
+              <Avatar uri={currentUser?.avatar} size={32} />
+              <View style={styles.inputWrapper}>
+                <Text style={styles.commentInputPlaceholder}>Add a comment...</Text>
               </View>
-            ) : (
-              <Text style={styles.noCommentsText}>No comments yet</Text>
-            )}
-          </View>
+            </View>
+          </TouchableOpacity>
         </ScrollView>
+      )}
+
+      <CommentsModal 
+        visible={isCommentsModalVisible}
+        onClose={() => setIsCommentsModalVisible(false)}
+        videoId={video._id}
+      />
+
+      {/* Quality Selection Modal (Simplified for Expo) */}
+      {showQualityModal && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Quality for current video</Text>
+            {qualities.map((q) => (
+              <TouchableOpacity 
+                key={q} 
+                style={styles.modalItem} 
+                onPress={() => handleQualityChange(q)}
+              >
+                <Text style={[styles.modalItemText, quality === q && { color: colors.dark.primary }]}>
+                  {q}
+                </Text>
+                {quality === q && <Ionicons name="checkmark" size={20} color={colors.dark.primary} />}
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.modalClose} onPress={() => setShowQualityModal(false)}>
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       )}
     </ScreenWrapper>
   );
@@ -461,5 +589,136 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.sm,
     textAlign: 'center',
     marginTop: layout.spacing.sm,
+  },
+  progressBarBackground: {
+    height: 3,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    width: '100%',
+    position: 'absolute',
+    bottom: 0,
+  },
+  progressBarForeground: {
+    height: '100%',
+    backgroundColor: colors.dark.primary,
+  },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+    zIndex: 1000,
+  },
+  modalContent: {
+    backgroundColor: colors.dark.surface,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: layout.spacing.lg,
+  },
+  modalTitle: {
+    color: colors.dark.text,
+    fontSize: typography.sizes.md,
+    fontWeight: typography.weights.bold as '700',
+    marginBottom: layout.spacing.md,
+  },
+  modalItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.dark.border,
+  },
+  modalItemText: {
+    color: colors.dark.text,
+    fontSize: typography.sizes.md,
+  },
+  modalClose: {
+    marginTop: layout.spacing.md,
+    alignItems: 'center',
+    padding: layout.spacing.md,
+  },
+  modalCloseText: {
+    color: colors.dark.textSecondary,
+    fontSize: typography.sizes.md,
+  },
+  commentInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: layout.spacing.md,
+  },
+  inputWrapper: {
+    flex: 1,
+    marginLeft: layout.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.dark.border,
+    paddingVertical: 4,
+  },
+  commentInput: {
+    color: colors.dark.textSecondary,
+    fontSize: typography.sizes.sm,
+  },
+  commentsList: {
+    marginTop: layout.spacing.md,
+  },
+  commentItem: {
+    flexDirection: 'row',
+    marginBottom: layout.spacing.lg,
+  },
+  commentContent: {
+    flex: 1,
+    marginLeft: layout.spacing.sm,
+  },
+  commentMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  commentUser: {
+    color: colors.dark.text,
+    fontSize: 13,
+    fontWeight: typography.weights.bold as '700',
+    marginRight: 8,
+  },
+  commentDate: {
+    color: colors.dark.textSecondary,
+    fontSize: 11,
+  },
+  commentActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  commentActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 20,
+  },
+  commentActionText: {
+    color: colors.dark.textSecondary,
+    fontSize: 12,
+    marginLeft: 4,
+  },
+  loginToComment: {
+    color: colors.dark.textSecondary,
+    fontSize: typography.sizes.sm,
+    textAlign: 'center',
+    marginVertical: layout.spacing.md,
+    fontStyle: 'italic',
+  },
+  commentInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: layout.spacing.sm,
+  },
+  inputWrapper: {
+    flex: 1,
+    backgroundColor: colors.dark.background,
+    borderRadius: layout.borderRadius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginLeft: layout.spacing.sm,
+  },
+  commentInputPlaceholder: {
+    color: colors.dark.textSecondary,
+    fontSize: typography.sizes.sm,
   },
 });

@@ -6,18 +6,28 @@ export const commentService = {
     return response.data;
   },
 
-  addComment: async (videoId: string, text: string) => {
-    const response = await api.post('/comment', { videoId, text });
+  addComment: async (videoId: string, text: string, parentCommentId?: string) => {
+    const response = await api.post('/comment/add', { videoId, text, parentCommentId });
     return response.data;
   },
 
   likeComment: async (commentId: string) => {
-    const response = await api.post(`/comment/like/${commentId}`);
+    const response = await api.post(`/comment/${commentId}/like`);
     return response.data;
   },
 
   deleteComment: async (commentId: string) => {
     const response = await api.delete(`/comment/${commentId}`);
+    return response.data;
+  },
+
+  reportComment: async (commentId: string, reason: string) => {
+    const response = await api.post(`/comment/${commentId}/report`, { reason });
+    return response.data;
+  },
+
+  getCommentReplies: async (commentId: string) => {
+    const response = await api.get(`/comment/replies/${commentId}`);
     return response.data;
   }
 };

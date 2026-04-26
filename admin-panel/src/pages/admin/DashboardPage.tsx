@@ -1,17 +1,18 @@
+import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { StatCard } from "@/components/admin/StatCard";
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import { Button } from "@/components/ui/button";
-import { Users, Film, Eye, IndianRupee, MoreHorizontal, ArrowUpRight, Check, X } from "lucide-react";
+import { Users, Film, Eye, IndianRupee, MoreHorizontal, ArrowUpRight, Check, X, Loader2 } from "lucide-react";
 import {
   ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell,
-  BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
+  BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
 import {
-  generateVideos, generateUsers, dauData, trafficSources,
+  dauData, trafficSources,
   uploadsData, revenueByMonth, fmtCompact, fmtDate, fmtINR,
 } from "@/lib/adminMock";
-import { cn } from "@/lib/utils";
+import { adminService } from "@/lib/adminService";
 
 const tooltipStyle = {
   backgroundColor: "hsl(var(--popover))",
@@ -22,47 +23,38 @@ const tooltipStyle = {
   boxShadow: "var(--shadow-card)",
 };
 
-import { useState, useEffect } from "react";
-import { adminService } from "@/lib/adminService";
-
 export default function DashboardPage() {
-  const [stats, setStats] = useState<any>({
-    totalUsers: 0,
-    totalVideos: 0,
-    viewsToday: "0",
-    monthlyRevenue: "₹0",
+  const { data: stats = { totalUsers: 0, totalVideos: 0, viewsToday: "0", monthlyRevenue: "₹0" }, isLoading: statsLoading } = useQuery({
+    queryKey: ["admin-stats"],
+    queryFn: adminService.getStats,
   });
-  const [recentVideos, setRecentVideos] = useState<any[]>([]);
-  const [recentUsers, setRecentUsers] = useState<any[]>([]);
-  const [pendingReports, setPendingReports] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [statsData, videosData, usersData, reportsData] = await Promise.all([
-          adminService.getStats(),
-          adminService.getRecentVideos(),
-          adminService.getRecentUsers(),
-          adminService.getReports(),
-        ]);
-        
-        setStats(statsData);
-        setRecentVideos(videosData);
-        setRecentUsers(usersData);
-        setPendingReports(reportsData);
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const { data: recentVideos = [], isLoading: videosLoading } = useQuery({
+    queryKey: ["admin-recent-videos"],
+    queryFn: adminService.getRecentVideos,
+  });
 
-    fetchData();
-  }, []);
+  const { data: recentUsers = [], isLoading: usersLoading } = useQuery({
+    queryKey: ["admin-recent-users"],
+    queryFn: adminService.getRecentUsers,
+  });
 
-  const topVideos = [...recentVideos].sort((a, b) => b.views - a.views).slice(0, 5);
+  const { data: pendingReports = [], isLoading: reportsLoading } = useQuery({
+    queryKey: ["admin-pending-reports"],
+    queryFn: adminService.getReports,
+  });
 
+  const loading = statsLoading || videosLoading || usersLoading || reportsLoading;
+
+  const topVideos = [...recentVideos].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 5);
+
+  if (loading) {
+    return (
+      <div className="h-[80vh] flex items-center justify-center">
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-[1600px]">
@@ -84,7 +76,7 @@ export default function DashboardPage() {
           <div className="flex items-start justify-between mb-4">
             <div>
               <h3 className="font-bold text-base">Daily Active Users</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Last 30 days</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Last 30 days (Mixed Data)</p>
             </div>
             <div className="text-right">
               <div className="text-2xl font-extrabold">{fmtCompact(dauData[dauData.length - 1].users)}</div>
@@ -202,7 +194,7 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {recentVideos.map((v) => (
+                {recentVideos.map((v: any) => (
                   <tr key={v._id} className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors">
                     <td className="py-3">
                       <div className="flex items-center gap-3 min-w-0">
@@ -230,9 +222,9 @@ export default function DashboardPage() {
             <Button variant="ghost" size="sm" asChild><a href="/admin/users">View all <ArrowUpRight className="w-3.5 h-3.5 ml-1" /></a></Button>
           </div>
           <div className="space-y-3">
-            {recentUsers.map((u) => (
+            {recentUsers.map((u: any) => (
               <div key={u._id} className="flex items-center gap-3">
-                <img src={u.avatar} className="w-9 h-9 rounded-full shrink-0" alt="" />
+                <img src={u.avatar || "/placeholder-avatar.png"} className="w-9 h-9 rounded-full shrink-0" alt="" />
                 <div className="min-w-0 flex-1">
                   <div className="font-medium text-sm truncate">{u.username}</div>
                   <div className="text-xs text-muted-foreground truncate">{u.email}</div>
@@ -252,7 +244,7 @@ export default function DashboardPage() {
         <Card className="p-5 md:p-6">
           <h3 className="font-bold text-base mb-4">Top Performing Videos</h3>
           <div className="space-y-3">
-            {topVideos.map((v, i) => (
+            {topVideos.map((v: any, i: number) => (
               <div key={v._id} className="flex items-center gap-3">
                 <div className="w-6 text-center text-sm font-extrabold text-muted-foreground tabular-nums">{i + 1}</div>
                 <img src={v.thumbnailUrl || "/placeholder-thumb.png"} className="w-12 h-12 rounded object-cover shrink-0" alt="" />
@@ -275,11 +267,11 @@ export default function DashboardPage() {
             <Button variant="ghost" size="sm" asChild><a href="/admin/reports">All reports <ArrowUpRight className="w-3.5 h-3.5 ml-1" /></a></Button>
           </div>
           <div className="space-y-3">
-            {pendingReports.map((r) => (
-              <div key={r.id} className="flex items-start gap-3 p-3 rounded-lg border border-border hover:border-primary/30 transition-colors">
+            {pendingReports.map((r: any) => (
+              <div key={r._id} className="flex items-start gap-3 p-3 rounded-lg border border-border hover:border-primary/30 transition-colors">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <StatusBadge status={r.priority} />
+                    <StatusBadge status={r.priority || "Medium"} />
                     <span className="text-xs text-muted-foreground">{r.reason}</span>
                   </div>
                   <div className="text-sm font-medium truncate">{r.target}</div>
@@ -291,12 +283,12 @@ export default function DashboardPage() {
                   <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" aria-label="Dismiss">
                     <X className="w-4 h-4" />
                   </Button>
-                  <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="More">
-                    <MoreHorizontal className="w-4 h-4" />
-                  </Button>
                 </div>
               </div>
             ))}
+            {pendingReports.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">No pending reports</div>
+            )}
           </div>
         </Card>
       </div>

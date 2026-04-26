@@ -45,6 +45,15 @@ export const adminService = {
     const response = await api.delete(`/admin/videos/${id}`);
     return response.data;
   },
+  
+  uploadVideo: async (formData: FormData) => {
+    const response = await api.post('/admin/videos/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
 
   getAllReports: async () => {
     const response = await api.get('/admin/reports/all');
@@ -118,6 +127,21 @@ export const adminService = {
 
   getChannels: async () => {
     const response = await api.get('/admin/channels');
+    return response.data;
+  },
+  
+  getStorageStats: async () => {
+    const response = await api.get('/admin/storage');
+    return response.data;
+  },
+
+  getWithdrawals: async () => {
+    const response = await api.get('/admin/withdrawals');
+    return response.data;
+  },
+
+  updateWithdrawalStatus: async (id: string, status: string) => {
+    const response = await api.put(`/admin/withdrawals/${id}`, { status });
     return response.data;
   }
 };

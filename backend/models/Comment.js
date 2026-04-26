@@ -17,6 +17,24 @@ const commentSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    likes: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }],
+    likesCount: {
+      type: Number,
+      default: 0
+    },
+    parentComment: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Comment',
+      default: null,
+      index: true
+    },
+    repliesCount: {
+      type: Number,
+      default: 0
+    }
   },
   {
     timestamps: true,

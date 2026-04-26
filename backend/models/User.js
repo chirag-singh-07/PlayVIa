@@ -23,7 +23,9 @@ const userSchema = new mongoose.Schema(
     },
     avatar: {
       type: String,
-      default: 'https://icon-library.com/images/anonymous-avatar-icon/anonymous-avatar-icon-25.jpg',
+      default: function() {
+        return `https://ui-avatars.com/api/?name=${encodeURIComponent(this.username || 'User')}&background=random&color=fff&size=256`;
+      },
     },
     referralCount: {
       type: Number,
@@ -78,13 +80,12 @@ const userSchema = new mongoose.Schema(
 );
 
 // Hash password before saving
-userSchema.pre('save', async function (next) {
+userSchema.pre('save', async function () {
   if (!this.isModified('password')) {
-    return next();
+    return;
   }
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
-  next();
 });
 
 // Match user entered password to hashed password in database

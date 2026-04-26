@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Film, FolderTree, MessageSquare, Flag,
   Users, Star, UserX, IndianRupee, Wallet, Megaphone,
   Smartphone, Bell, Image as ImageIcon, Settings, ShieldCheck, ScrollText,
-  ChevronLeft, LogOut, Play,
+  ChevronLeft, LogOut, Play, HardDrive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,7 @@ const SECTIONS = [
       { to: "/admin/app-versions", icon: Smartphone, label: "App Versions" },
       { to: "/admin/notifications", icon: Bell, label: "Notifications" },
       { to: "/admin/banners", icon: ImageIcon, label: "Banners" },
+      { to: "/admin/storage", icon: HardDrive, label: "Storage & Quotas" },
     ],
   },
   {

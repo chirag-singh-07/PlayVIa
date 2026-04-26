@@ -7,16 +7,24 @@ interface AvatarProps {
   style?: ViewStyle;
 }
 
+const DEFAULT_AVATAR = 'https://icon-library.com/images/anonymous-avatar-icon/anonymous-avatar-icon-25.jpg';
+
 export const Avatar: React.FC<AvatarProps> = ({ uri, size = 40, style }) => {
+  const [error, setError] = React.useState(false);
+  
+  const isValidUri = uri && uri.trim() !== '' && !uri.includes('undefined') && !uri.includes('null');
+  const sourceUri = isValidUri && !error ? uri : DEFAULT_AVATAR;
+  
   return (
     <Image
-      source={{ uri }}
+      source={{ uri: sourceUri }}
       style={[
         styles.avatar,
         { width: size, height: size, borderRadius: size / 2 },
         style,
       ]}
       resizeMode="cover"
+      onError={() => setError(true)}
     />
   );
 };

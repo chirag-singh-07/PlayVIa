@@ -14,6 +14,7 @@ interface VideoCardProps {
   createdAt: string;
   duration: string;
   onPress?: () => void;
+  onChannelPress?: () => void;
   style?: ViewStyle;
 }
 
@@ -26,6 +27,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   createdAt,
   duration,
   onPress,
+  onChannelPress,
   style,
 }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -56,7 +58,13 @@ export const VideoCard: React.FC<VideoCardProps> = ({
       >
         {/* Thumbnail */}
         <View style={styles.thumbnailContainer}>
-          <Image source={{ uri: thumbnail }} style={styles.thumbnail} resizeMode="cover" />
+          {thumbnail && thumbnail.trim() !== '' ? (
+            <Image source={{ uri: thumbnail }} style={styles.thumbnail} resizeMode="cover" />
+          ) : (
+            <View style={[styles.thumbnail, { backgroundColor: colors.dark.surface, justifyContent: 'center', alignItems: 'center' }]}>
+              <Ionicons name="image-outline" size={48} color={colors.dark.textSecondary} />
+            </View>
+          )}
           <View style={styles.durationBadge}>
             <Text style={styles.durationText}>{duration}</Text>
           </View>
@@ -64,15 +72,20 @@ export const VideoCard: React.FC<VideoCardProps> = ({
 
         {/* Info Row */}
         <View style={styles.infoContainer}>
-          <Avatar uri={channelAvatar} size={40} style={styles.avatar} />
+          <TouchableOpacity onPress={onChannelPress} activeOpacity={0.7}>
+            <Avatar uri={channelAvatar} size={40} style={styles.avatar} />
+          </TouchableOpacity>
           
           <View style={styles.textContainer}>
             <Text style={styles.title} numberOfLines={2}>
               {title}
             </Text>
-            <Text style={styles.subtitle} numberOfLines={1}>
-              {channelName} • {views} views • {createdAt}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+              <TouchableOpacity onPress={onChannelPress} activeOpacity={0.7}>
+                <Text style={styles.subtitle}>{channelName} • </Text>
+              </TouchableOpacity>
+              <Text style={styles.subtitle}>{views} views • {createdAt}</Text>
+            </View>
           </View>
 
           <TouchableOpacity 

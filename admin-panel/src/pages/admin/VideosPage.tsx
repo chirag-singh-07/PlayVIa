@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ColumnDef, flexRender, getCoreRowModel, getFilteredRowModel,
   getPaginationRowModel, getSortedRowModel, SortingState, useReactTable,
@@ -19,19 +20,19 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Search, Download, MoreHorizontal, Eye, Edit, Star, Ban, Trash2,
-  ChevronLeft, ChevronRight, ArrowUpDown, Play, Heart, MessageCircle, Share2,
-  Loader2,
+  ChevronLeft, ChevronRight, ArrowUpDown, Eye as EyeIcon, Heart, MessageCircle, Share2,
+  Loader2, Upload, Plus,
 } from "lucide-react";
-import { generateVideos, fmtCompact, fmtDate, type Video, VIDEO_STATUSES, CATEGORIES } from "@/lib/adminMock";
-import { cn } from "@/lib/utils";
+import { fmtCompact, fmtDate, VIDEO_STATUSES, CATEGORIES } from "@/lib/adminMock";
 import { toast } from "sonner";
-import { ResponsiveContainer, LineChart, Line, XAxis, Tooltip } from "recharts";
 import { adminService } from "@/lib/adminService";
 import { UserAvatar } from "@/components/admin/UserAvatar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function VideosPage() {
-  const [videos, setVideos] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -39,39 +40,64 @@ export default function VideosPage() {
   const [rowSelection, setRowSelection] = useState({});
   const [active, setActive] = useState<any | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [showUpload, setShowUpload] = useState(false);
 
-  const fetchVideos = async () => {
-    setLoading(true);
-    try {
-      const data = await adminService.getAllVideos();
-      setVideos(data);
-    } catch (error) {
-      console.error("Error fetching videos:", error);
-      toast.error("Failed to load videos");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [uploadData, setUploadData] = useState({
+    title: "",
+    description: "",
+    category: "General",
+    videoType: "video",
+    videoFile: null as File | null,
+    thumbnailFile: null as File | null,
+  });
 
-  useEffect(() => {
-    fetchVideos();
-  }, []);
+  const { data: videos = [], isLoading } = useQuery({
+    queryKey: ["admin-videos"],
+    queryFn: adminService.getAllVideos,
+  });
 
-  const handleDelete = async (id: string) => {
-    try {
-      await adminService.deleteVideo(id);
+  const uploadMutation = useMutation({
+    mutationFn: adminService.uploadVideo,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-videos"] });
+      toast.success("Video uploaded successfully");
+      setShowUpload(false);
+      setUploadData({ title: "", description: "", category: "General", videoType: "video", videoFile: null, thumbnailFile: null });
+    },
+    onError: () => toast.error("Upload failed")
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: adminService.deleteVideo,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-videos"] });
       toast.success("Video deleted");
-      fetchVideos();
-      if (active && active._id === id) setActive(null);
-    } catch (error) {
-      toast.error("Failed to delete video");
-    } finally {
+      setActive(null);
       setDeleteConfirm(null);
+    },
+    onError: () => toast.error("Failed to delete video")
+  });
+
+  const handleUpload = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadData.title || !uploadData.videoFile) {
+      toast.error("Please fill required fields");
+      return;
     }
+
+    const formData = new FormData();
+    formData.append("title", uploadData.title);
+    formData.append("description", uploadData.description);
+    formData.append("category", uploadData.category);
+    formData.append("videoType", uploadData.videoType);
+    if (uploadData.videoFile) formData.append("video", uploadData.videoFile);
+    if (uploadData.thumbnailFile) formData.append("thumbnail", uploadData.thumbnailFile);
+
+    uploadMutation.mutate(formData);
   };
 
-  const data = useMemo(() => {
-    return videos.filter((v) => {
+  const filteredData = useMemo(() => {
+    return videos.filter((v: any) => {
       const q = search.trim().toLowerCase();
       const passQ = !q || v.title.toLowerCase().includes(q) || v.channel?.name.toLowerCase().includes(q);
       const status = v.isPublished ? "Active" : "Draft";
@@ -99,7 +125,7 @@ export default function VideosPage() {
       accessorKey: "title", header: "Video",
       cell: ({ row }) => (
         <div className="flex items-center gap-3 min-w-0">
-          <img src={row.original.thumbnail} className="w-20 h-12 rounded object-cover shrink-0" alt="" />
+          <img src={row.original.thumbnailUrl || row.original.thumbnail} className="w-20 h-12 rounded object-cover shrink-0" alt="" />
           <div className="min-w-0">
             <div className="font-medium truncate max-w-[280px]">{row.original.title}</div>
             <div className="text-xs text-muted-foreground truncate">{row.original._id}</div>
@@ -111,8 +137,8 @@ export default function VideosPage() {
       accessorKey: "channel.name", header: "Creator",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <UserAvatar src={row.original.uploader?.avatar} name={row.original.uploader?.username} className="w-7 h-7 text-[10px]" />
-          <span className="text-sm">{row.original.uploader?.username || "Unknown"}</span>
+          <UserAvatar src={row.original.channel?.avatar} name={row.original.channel?.name} className="w-7 h-7 text-[10px]" />
+          <span className="text-sm">{row.original.channel?.name || "Unknown"}</span>
         </div>
       )
     },
@@ -131,7 +157,7 @@ export default function VideosPage() {
           Likes <ArrowUpDown className="w-3 h-3" />
         </button>
       ),
-      cell: (info) => <span className="tabular-nums text-muted-foreground">{fmtCompact(info.getValue<number>()?.length || 0)}</span>,
+      cell: (info) => <span className="tabular-nums text-muted-foreground">{fmtCompact(info.getValue<any>()?.length || 0)}</span>,
     },
     { accessorKey: "status", header: "Status", cell: ({ row }) => <StatusBadge status={row.original.isPublished ? "Active" : "Draft"} /> },
     {
@@ -168,19 +194,17 @@ export default function VideosPage() {
         </DropdownMenu>
       ),
     },
-  ], [videos]);
+  ], []);
 
   const table = useReactTable({
-    data, columns, state: { sorting, rowSelection },
+    data: filteredData, columns, state: { sorting, rowSelection },
     onSortingChange: setSorting, onRowSelectionChange: setRowSelection,
     getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(), getFilteredRowModel: getFilteredRowModel(),
     initialState: { pagination: { pageSize: 25 } },
   });
 
-  const selectedCount = Object.keys(rowSelection).length;
-
-  if (loading && videos.length === 0) {
+  if (isLoading) {
     return (
       <div className="flex h-[400px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -195,9 +219,14 @@ export default function VideosPage() {
           <h2 className="text-2xl font-extrabold tracking-tight">Manage Videos</h2>
           <span className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold">{videos.length}</span>
         </div>
-        <Button variant="outline" onClick={() => toast.success("CSV exported (mock)")}>
-          <Download className="w-4 h-4 mr-2" /> Export CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => toast.success("CSV exported (mock)")}>
+            <Download className="w-4 h-4 mr-2" /> Export CSV
+          </Button>
+          <Button onClick={() => setShowUpload(true)}>
+            <Plus className="w-4 h-4 mr-2" /> Upload Video
+          </Button>
+        </div>
       </div>
 
       <Card className="p-4">
@@ -221,17 +250,6 @@ export default function VideosPage() {
             </SelectContent>
           </Select>
         </div>
-
-        {selectedCount > 0 && (
-          <div className="mt-3 flex items-center justify-between gap-3 p-3 rounded-lg bg-primary/10 border border-primary/20">
-            <div className="text-sm font-medium">{selectedCount} selected</div>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => toast.success("Approved")}>Approve</Button>
-              <Button size="sm" variant="outline" onClick={() => toast.success("Suspended")}>Suspend</Button>
-              <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => toast.success("Deleted")}>Delete</Button>
-            </div>
-          </div>
-        )}
       </Card>
 
       <Card className="overflow-hidden">
@@ -268,11 +286,10 @@ export default function VideosPage() {
           </table>
         </div>
 
-        {/* Pagination */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-border flex-wrap gap-2">
           <div className="text-xs text-muted-foreground">
             Showing {table.getState().pagination.pageIndex * 25 + 1}–
-            {Math.min((table.getState().pagination.pageIndex + 1) * 25, data.length)} of {data.length}
+            {Math.min((table.getState().pagination.pageIndex + 1) * 25, filteredData.length)} of {filteredData.length}
           </div>
           <div className="flex items-center gap-1">
             <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
@@ -288,7 +305,6 @@ export default function VideosPage() {
         </div>
       </Card>
 
-      {/* Detail drawer */}
       <Sheet open={!!active} onOpenChange={(o) => !o && setActive(null)}>
         <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
           {active && (
@@ -297,11 +313,13 @@ export default function VideosPage() {
                 <SheetTitle className="text-left">Video Details</SheetTitle>
               </SheetHeader>
               <div className="mt-6 space-y-5">
-                <div className="aspect-video rounded-xl bg-muted relative overflow-hidden">
-                  <img src={active.thumbnail} className="w-full h-full object-cover" alt="" />
-                  <Button size="icon" className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full bg-white/90 hover:bg-white text-primary shadow-elevated">
-                    <Play className="w-7 h-7 fill-current ml-0.5" />
-                  </Button>
+                <div className="aspect-video rounded-xl bg-black relative overflow-hidden group">
+                  <video 
+                    src={active.videoUrl} 
+                    poster={active.thumbnailUrl || active.thumbnail}
+                    controls 
+                    className="w-full h-full object-contain"
+                  />
                 </div>
                 <div>
                   <h3 className="font-bold text-lg leading-tight">{active.title}</h3>
@@ -309,7 +327,7 @@ export default function VideosPage() {
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   <div className="rounded-lg border border-border p-3">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Eye className="w-3.5 h-3.5" /> Views</div>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><EyeIcon className="w-3.5 h-3.5" /> Views</div>
                     <div className="text-lg font-bold tabular-nums mt-1">{fmtCompact(active.views)}</div>
                   </div>
                   <div className="rounded-lg border border-border p-3">
@@ -323,10 +341,10 @@ export default function VideosPage() {
                 </div>
                 
                 <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
-                  <UserAvatar src={active.uploader?.avatar} name={active.uploader?.username} />
+                  <UserAvatar src={active.channel?.owner?.avatar} name={active.channel?.owner?.username} />
                   <div>
-                    <div className="font-medium">{active.uploader?.username || "Unknown Creator"}</div>
-                    <div className="text-xs text-muted-foreground">{active.uploader?.email || "No email"}</div>
+                    <div className="font-medium">{active.channel?.owner?.username || "Unknown Creator"}</div>
+                    <div className="text-xs text-muted-foreground">{active.channel?.owner?.email || "No email"}</div>
                   </div>
                 </div>
 
@@ -354,6 +372,62 @@ export default function VideosPage() {
         </SheetContent>
       </Sheet>
 
+      <Dialog open={showUpload} onOpenChange={setShowUpload}>
+        <DialogContent className="sm:max-w-[500px]">
+          <form onSubmit={handleUpload}>
+            <DialogHeader>
+              <DialogTitle>Upload New Video</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="title">Title *</Label>
+                <Input id="title" required value={uploadData.title} onChange={e => setUploadData({...uploadData, title: e.target.value})} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="desc">Description</Label>
+                <Textarea id="desc" rows={3} value={uploadData.description} onChange={e => setUploadData({...uploadData, description: e.target.value})} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>Category</Label>
+                  <Select value={uploadData.category} onValueChange={v => setUploadData({...uploadData, category: v})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Type</Label>
+                  <Select value={uploadData.videoType} onValueChange={v => setUploadData({...uploadData, videoType: v})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="video">Standard Video</SelectItem>
+                      <SelectItem value="short">Short Reel</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label>Video File *</Label>
+                <Input type="file" accept="video/*" required onChange={e => setUploadData({...uploadData, videoFile: e.target.files?.[0] || null})} />
+              </div>
+              <div className="grid gap-2">
+                <Label>Thumbnail (Optional)</Label>
+                <Input type="file" accept="image/*" onChange={e => setUploadData({...uploadData, thumbnailFile: e.target.files?.[0] || null})} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowUpload(false)}>Cancel</Button>
+              <Button type="submit" disabled={uploadMutation.isPending}>
+                {uploadMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
+                {uploadMutation.isPending ? "Uploading..." : "Start Upload"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -364,8 +438,12 @@ export default function VideosPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deleteConfirm && handleDelete(deleteConfirm)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+            <AlertDialogAction 
+              onClick={() => deleteConfirm && deleteMutation.mutate(deleteConfirm)} 
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

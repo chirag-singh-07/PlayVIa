@@ -1,38 +1,79 @@
+const { S3Client } = require('@aws-sdk/client-s3');
+const multer = require('multer');
+const multerS3 = require('multer-s3');
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
-const multer = require('multer');
 const path = require('path');
 
-// Configure Cloudinary
+// Configure S3 client (For Images)
+const s3 = new S3Client({
+  region: process.env.AWS_REGION || 'auto',
+  endpoint: process.env.AWS_ENDPOINT_URL_S3,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+});
+
+// Configure Cloudinary (For Videos)
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Setup multer storage using Cloudinary
-const storage = new CloudinaryStorage({
+// Storage configurations
+const s3Storage = multerS3({
+  s3: s3,
+  bucket: process.env.S3_BUCKET || process.env.AWS_BUCKET_NAME || 'indian-video-player-assets',
+  metadata: function (req, file, cb) {
+    cb(null, { fieldName: file.fieldname });
+  },
+  key: function (req, file, cb) {
+    let folder = 'video_platform/images';
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, `${folder}/${file.fieldname}-${uniqueSuffix}-${file.originalname}`);
+  }
+});
+
+const cloudinaryStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: async (req, file) => {
-    // Determine folder and resource_type based on file type
-    let folder = 'video_platform/others';
-    let resource_type = 'auto';
-
-    if (file.mimetype.startsWith('video/')) {
-      folder = 'video_platform/videos';
-      resource_type = 'video';
-    } else if (file.mimetype.startsWith('image/')) {
-      folder = 'video_platform/images';
-      resource_type = 'image';
-    }
-
     return {
-      folder: folder,
-      resource_type: resource_type,
-      // allowed_formats: ['jpg', 'png', 'mp4', 'mkv', 'webm'],
+      folder: 'video_platform/videos',
+      resource_type: 'video',
     };
   },
 });
+
+// Custom Composite Storage Engine
+function DualStorageEngine() {}
+DualStorageEngine.prototype._handleFile = function _handleFile(req, file, cb) {
+  if (file.mimetype.startsWith('video/')) {
+    cloudinaryStorage._handleFile(req, file, (err, info) => {
+      if (!err && info) {
+        // Standardize output property to location
+        info.location = info.path; 
+        // Attach additional info like duration if available from Cloudinary
+        if (info.duration) {
+          info.duration = info.duration; // It's already in info
+        }
+      }
+      cb(err, info);
+    });
+  } else {
+    s3Storage._handleFile(req, file, cb);
+  }
+};
+DualStorageEngine.prototype._removeFile = function _removeFile(req, file, cb) {
+  if (file.mimetype.startsWith('video/')) {
+    cloudinaryStorage._removeFile(req, file, cb);
+  } else {
+    s3Storage._removeFile(req, file, cb);
+  }
+};
+
+const storage = new DualStorageEngine();
 
 const ALLOWED_VIDEO_FORMATS = ['video/mp4', 'video/quicktime', 'video/webm'];
 const ALLOWED_IMAGE_FORMATS = ['image/jpeg', 'image/png', 'image/webp'];
@@ -44,17 +85,16 @@ const fileFilter = (req, file, cb) => {
     if (ALLOWED_VIDEO_FORMATS.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      // Custom error that will be caught by error middleware
       cb(new Error('Only mp4, mov, and webm formats are allowed'), false);
     }
-  } else if (file.fieldname === 'thumbnail') {
+  } else if (file.fieldname === 'thumbnail' || file.fieldname === 'avatar' || file.fieldname === 'banner' || file.fieldname === 'logo') {
     if (ALLOWED_IMAGE_FORMATS.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid image format for thumbnail'), false);
+      cb(new Error(`Invalid image format for ${file.fieldname}`), false);
     }
   } else {
-    cb(new Error('Unexpected field'), false);
+    cb(new Error(`Unexpected field: ${file.fieldname}`), false);
   }
 };
 

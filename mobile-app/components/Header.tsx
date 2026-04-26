@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { IconButton } from './IconButton';
 import { Avatar } from './Avatar';
 import { colors, typography } from '../theme';
+import { Ionicons } from '@expo/vector-icons';
 
 export const Header: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -18,7 +19,7 @@ export const Header: React.FC = () => {
 
       {/* Actions */}
       <View style={styles.actionsContainer}>
-        <IconButton icon="cast-outline" />
+        <IconButton icon="tv-outline" />
         <IconButton icon="notifications-outline" onPress={() => navigation.navigate('Notifications')} />
         <IconButton icon="search-outline" onPress={() => navigation.navigate('Search')} />
         <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
@@ -29,8 +30,8 @@ export const Header: React.FC = () => {
   );
 };
 
-// Need to import Ionicons for the logo
-import { Ionicons } from '@expo/vector-icons';
+// Actions styles moved up if needed, but keeping bottom clean
+
 
 const styles = StyleSheet.create({
   container: {

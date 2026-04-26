@@ -2,6 +2,7 @@
   "expo": {
     "name": "PlayVia",
     "slug": "playvia",
+    "scheme": "playvia",
     "version": "1.0.0",
     "cli": {
   "appVersionSource": "remote"

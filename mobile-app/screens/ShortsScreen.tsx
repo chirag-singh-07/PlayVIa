@@ -8,12 +8,19 @@ import { videoService } from '../services/videoService';
 import { formatViews } from '../utils/videoUtils';
 import { Video, ResizeMode } from 'expo-av';
 
+import { ShortVideoItem } from '../components/ShortVideoItem';
+import { CommentsModal } from '../components/CommentsModal';
+import { useIsFocused } from '@react-navigation/native';
+
 const { height: WINDOW_HEIGHT } = Dimensions.get('window');
 
 export const ShortsScreen: React.FC = () => {
+  const isFocused = useIsFocused();
   const [shorts, setShorts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
+  const [isCommentsVisible, setIsCommentsVisible] = useState(false);
+  const [selectedVideoId, setSelectedVideoId] = useState<string>('');
 
   useEffect(() => {
     const fetchShorts = async () => {
@@ -29,63 +36,18 @@ export const ShortsScreen: React.FC = () => {
     fetchShorts();
   }, []);
 
+  const openComments = (videoId: string) => {
+    setSelectedVideoId(videoId);
+    setIsCommentsVisible(true);
+  };
+
   const renderItem = ({ item, index }: { item: any, index: number }) => {
-    const isActive = index === activeVideoIndex;
-
     return (
-      <View style={styles.shortContainer}>
-        {isActive ? (
-          (() => {
-            const VideoPlayer = Video as any;
-            return (
-              <VideoPlayer
-                source={{ uri: item.videoUrl }}
-                style={styles.video}
-                resizeMode={ResizeMode.COVER}
-                shouldPlay={isActive}
-                isLooping
-                useNativeControls={false}
-              />
-            );
-          })()
-        ) : (
-          <Image source={{ uri: item.thumbnailUrl }} style={styles.video} resizeMode="cover" />
-        )}
-        
-        <View style={styles.overlay} />
-
-        {/* Right Side Actions */}
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity style={styles.actionItem}>
-            <Ionicons name="thumbs-up" size={32} color={colors.dark.white} />
-            <Text style={styles.actionText}>{formatViews(item.likesCount || 0)}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionItem}>
-            <Ionicons name="thumbs-down" size={32} color={colors.dark.white} />
-            <Text style={styles.actionText}>Dislike</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionItem}>
-            <Ionicons name="chatbubble-ellipses" size={32} color={colors.dark.white} />
-            <Text style={styles.actionText}>{formatViews(item.commentsCount || 0)}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionItem}>
-            <Ionicons name="share-social" size={32} color={colors.dark.white} />
-            <Text style={styles.actionText}>Share</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Bottom Info */}
-        <View style={styles.bottomInfo}>
-          <View style={styles.channelRow}>
-            <Avatar uri={item.channel?.avatar} size={40} />
-            <Text style={styles.channelName}>{item.channel?.name || 'Unknown'}</Text>
-            <TouchableOpacity style={styles.subscribeBtn}>
-              <Text style={styles.subscribeText}>Subscribe</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
-        </View>
-      </View>
+      <ShortVideoItem 
+        item={item} 
+        isActive={index === activeVideoIndex && isFocused} 
+        onCommentPress={openComments}
+      />
     );
   };
 
@@ -108,8 +70,10 @@ export const ShortsScreen: React.FC = () => {
           setActiveVideoIndex(index);
         }}
         removeClippedSubviews={true}
-        maxToRenderPerBatch={3}
-        windowSize={5}
+        maxToRenderPerBatch={2}
+        windowSize={3}
+        initialNumToRender={1}
+        contentContainerStyle={{ paddingBottom: 70 }}
       />
       
       {/* Top Header Overlay */}
@@ -119,6 +83,12 @@ export const ShortsScreen: React.FC = () => {
           <Ionicons name="camera" size={28} color={colors.dark.white} />
         </TouchableOpacity>
       </View>
+
+      <CommentsModal 
+        visible={isCommentsVisible}
+        onClose={() => setIsCommentsVisible(false)}
+        videoId={selectedVideoId}
+      />
     </View>
   );
 };

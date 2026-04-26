@@ -6,26 +6,20 @@ const categorySchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
+      trim: true,
     },
     slug: {
       type: String,
-      required: true,
       unique: true,
+      trim: true,
+      lowercase: true,
     },
     icon: {
-      type: String,
-      default: '📁',
+      type: String, // Icon name for Ionicons
     },
-    description: {
-      type: String,
-    },
-    active: {
+    isActive: {
       type: Boolean,
       default: true,
-    },
-    order: {
-      type: Number,
-      default: 0,
     },
   },
   {
@@ -33,4 +27,5 @@ const categorySchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model('Category', categorySchema);
+const Category = mongoose.model('Category', categorySchema);
+module.exports = Category;

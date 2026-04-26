@@ -281,6 +281,29 @@ const resetPassword = asyncHandler(async (req, res) => {
   res.json({ message: 'Password reset successful. You can now login.' });
 });
 
+// @desc    Get user profile
+// @route   GET /api/auth/profile
+// @access  Private
+const getUserProfile = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
+
+  if (user) {
+    res.json({
+      _id: user._id,
+      name: user.name,
+      username: user.username,
+      email: user.email,
+      avatar: user.avatar,
+      role: user.role,
+      referralCode: user.referralCode,
+      referralCount: user.referralCount,
+    });
+  } else {
+    res.status(404);
+    throw new Error('User not found');
+  }
+});
+
 module.exports = {
   registerUser,
   loginUser,
@@ -289,4 +312,5 @@ module.exports = {
   forgotPassword,
   verifyResetOtp,
   resetPassword,
+  getUserProfile,
 };

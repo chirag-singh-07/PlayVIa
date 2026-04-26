@@ -45,5 +45,13 @@ export const videoService = {
   toggleLike: async (id: string) => {
     const response = await api.post(`/video/${id}/like`);
     return response.data;
-  }
+  },
+  getCategories: async () => {
+    const response = await api.get('/video/categories');
+    return response.data;
+  },
+  updateVideoDuration: async (id: string, duration: number) => {
+    const response = await api.put(`/video/${id}/duration`, { duration });
+    return response.data;
+  },
 };

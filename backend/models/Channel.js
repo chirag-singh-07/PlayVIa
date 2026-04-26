@@ -19,6 +19,13 @@ const channelSchema = new mongoose.Schema(
     },
     banner: {
       type: String,
+      default: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop',
+    },
+    avatar: {
+      type: String,
+      default: function() {
+        return `https://ui-avatars.com/api/?name=${encodeURIComponent(this.name || 'Channel')}&background=random&color=fff&size=256`;
+      },
     },
     subscribersCount: {
       type: Number,

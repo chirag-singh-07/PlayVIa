@@ -1,203 +1,318 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, RefreshControl, Alert } from 'react-native';
 import { Avatar } from '../components/Avatar';
-import { VideoCard } from '../components/VideoCard';
 import { layout } from '../constants';
 import { colors, typography } from '../theme';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 import { useAuth } from '../context/AuthContext';
+import { useFocusEffect } from '@react-navigation/native';
 import { channelService } from '../services/channelService';
-import { formatViews, formatTimeAgo, formatDuration } from '../utils/videoUtils';
+import { videoService } from '../services/videoService';
+import { formatViews } from '../utils/videoUtils';
 
 export const ProfileScreen: React.FC<any> = ({ navigation }) => {
-  const { user: profile, logout } = useAuth();
-  const [myVideos, setMyVideos] = useState<any[]>([]);
+  const { user, logout } = useAuth();
+  const [myChannel, setMyChannel] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    const fetchProfileData = async () => {
-      try {
-        if (profile?.channel) {
-          const videos = await channelService.getChannelVideos(profile.channel._id);
-          setMyVideos(videos);
-        }
-      } catch (error) {
-        console.error('Error fetching channel videos:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProfileData();
-  }, [profile]);
-
-  const handleLogout = async () => {
-    await logout();
-    // AuthProvider will automatically switch to AuthNavigator
+  const fetchProfileData = async () => {
+    try {
+      const channel = await channelService.getMyChannel();
+      setMyChannel(channel);
+    } catch (error) {
+      console.error('Error fetching profile data:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
-  if (loading) return (
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchProfileData();
+    }, [])
+  );
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchProfileData();
+  };
+
+  const handleLogout = async () => {
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Logout', style: 'destructive', onPress: async () => await logout() }
+    ]);
+  };
+
+  if (loading && !refreshing) return (
     <ScreenWrapper>
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={styles.centered}>
         <ActivityIndicator size="large" color={colors.dark.primary} />
       </View>
     </ScreenWrapper>
   );
+
   return (
     <ScreenWrapper>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profile</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
-          <Ionicons name="settings-outline" size={24} color={colors.dark.text} />
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>You</Text>
+        <View style={styles.headerIcons}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Settings')}>
+            <Ionicons name="settings-outline" size={24} color={colors.dark.text} />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* User Info */}
-        <View style={styles.userInfoContainer}>
-          <Avatar uri={profile?.avatar} size={80} />
-          <View style={styles.userDetails}>
-            <Text style={styles.username}>{profile?.name || profile?.username || 'Guest'}</Text>
-            <Text style={styles.userHandle}>@{profile?.username || 'guest'}</Text>
-            <Text style={styles.userStats}>
-              {formatViews(profile?.channel?.subscribersCount || 0)} Subscribers • {myVideos.length} Videos
-            </Text>
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.dark.primary} />}
+      >
+        {/* User Identity Section */}
+        <View style={styles.userSection}>
+          <Avatar uri={myChannel?.avatar || user?.avatar} size={70} />
+          <View style={styles.userText}>
+            <Text style={styles.nameText}>{myChannel?.name || user?.name || user?.username}</Text>
+            <Text style={styles.handleText}>@{user?.username} • View channel</Text>
           </View>
-        </View>
-
-        {/* Manage Channel Button */}
-        <View style={styles.manageContainer}>
-          {profile?.channel ? (
-            <>
-              <TouchableOpacity 
-                style={styles.manageBtn}
-                onPress={() => navigation.navigate('ChannelDashboard')}
-              >
-                <Text style={styles.manageBtnText}>Manage Videos</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.manageBtn}
-                onPress={() => navigation.navigate('ChannelDashboard')}
-              >
-                <Ionicons name="analytics-outline" size={18} color={colors.dark.text} />
-              </TouchableOpacity>
-            </>
-          ) : (
-            <TouchableOpacity 
-              style={styles.manageBtn}
-              onPress={() => navigation.navigate('ChannelCreate')}
-            >
-              <Text style={styles.manageBtnText}>Create Your Channel</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Library Actions */}
-        <View style={styles.manageContainer}>
-           <TouchableOpacity 
-            style={[styles.manageBtn, { backgroundColor: colors.dark.background, borderWidth: 1, borderColor: colors.dark.border }]}
-            onPress={() => navigation.navigate('Library')}
-          >
-            <Text style={styles.manageBtnText}>Go to Library</Text>
-          </TouchableOpacity>
           <TouchableOpacity 
-            style={[styles.manageBtn, { backgroundColor: colors.dark.background, borderWidth: 1, borderColor: colors.dark.border }]}
-            onPress={handleLogout}
+            style={styles.switchAccountBtn}
+            onPress={() => navigation.navigate('ChannelProfile', { channelId: myChannel?._id })}
+            disabled={!myChannel}
           >
-            <Text style={[styles.manageBtnText, { color: colors.dark.primary }]}>Logout</Text>
+            <Ionicons name="chevron-forward" size={20} color={colors.dark.textSecondary} />
           </TouchableOpacity>
         </View>
 
-        {/* Uploaded Videos Section */}
-        {myVideos.length > 0 && (
-          <>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Your Videos</Text>
-            </View>
+        {/* Quick Actions (Switch, Google Account) */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickActions}>
+          <TouchableOpacity style={styles.actionPill}>
+            <Ionicons name="people-outline" size={18} color={colors.dark.text} />
+            <Text style={styles.actionPillText}>Switch account</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionPill}>
+            <Ionicons name="logo-google" size={18} color={colors.dark.text} />
+            <Text style={styles.actionPillText}>Google Account</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionPill}>
+            <Ionicons name="person-add-outline" size={18} color={colors.dark.text} />
+            <Text style={styles.actionPillText}>Turn on Incognito</Text>
+          </TouchableOpacity>
+        </ScrollView>
 
-            {myVideos.map((item) => (
-              <VideoCard
-                key={item._id}
-                title={item.title}
-                thumbnail={item.thumbnailUrl}
-                channelName={profile?.channel?.name || 'Your Channel'}
-                channelAvatar={profile?.avatar || ''}
-                views={formatViews(item.views || 0)}
-                createdAt={formatTimeAgo(item.createdAt)}
-                duration={formatDuration(item.duration)}
-                onPress={() => navigation.navigate('VideoPlayer', { video: item })}
-              />
-            ))}
-          </>
-        )}
+        <View style={styles.divider} />
+
+        {/* Menu Options Section */}
+        <View style={styles.menuSection}>
+          <MenuOption 
+            icon="play-circle-outline" 
+            title="Your videos" 
+            onPress={() => navigation.navigate('YourVideos')} 
+          />
+          <MenuOption 
+            icon="download-outline" 
+            title="Downloads" 
+            subtitle="20 videos" 
+            onPress={() => navigation.navigate('DownloadManager')} 
+          />
+          <MenuOption 
+            icon="film-outline" 
+            title="Your movies" 
+            onPress={() => {}} 
+          />
+          
+          <View style={styles.sectionDivider} />
+          
+          <MenuOption 
+            icon="time-outline" 
+            title="Time watched" 
+            onPress={() => {}} 
+          />
+          <MenuOption 
+            icon="shield-checkmark-outline" 
+            title="Your data in VidPlay" 
+            onPress={() => {}} 
+          />
+          
+          <View style={styles.sectionDivider} />
+
+          {/* Special Channel Action */}
+          {!myChannel ? (
+            <MenuOption 
+              icon="add-circle-outline" 
+              title="Create a channel" 
+              titleStyle={{ color: colors.dark.primary }}
+              onPress={() => navigation.navigate('CreateChannel')} 
+            />
+          ) : (
+            <MenuOption 
+              icon="analytics-outline" 
+              title="Channel dashboard" 
+              onPress={() => navigation.navigate('ChannelDashboard')} 
+            />
+          )}
+
+          <MenuOption 
+            icon="help-circle-outline" 
+            title="Help and feedback" 
+            onPress={() => {}} 
+          />
+          
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={24} color={colors.dark.primary} />
+            <Text style={styles.logoutText}>Sign out</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Branding Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>VidPlay v1.0.0</Text>
+        </View>
       </ScrollView>
     </ScreenWrapper>
   );
 };
 
+const MenuOption = ({ icon, title, subtitle, onPress, titleStyle }: any) => (
+  <TouchableOpacity style={styles.optionItem} onPress={onPress}>
+    <View style={styles.optionLeft}>
+      <Ionicons name={icon} size={24} color={colors.dark.text} />
+      <View style={styles.optionTextContainer}>
+        <Text style={[styles.optionTitle, titleStyle]}>{title}</Text>
+        {subtitle && <Text style={styles.optionSubtitle}>{subtitle}</Text>}
+      </View>
+    </View>
+    <Ionicons name="chevron-forward" size={18} color={colors.dark.border} />
+  </TouchableOpacity>
+);
+
 const styles = StyleSheet.create({
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: layout.spacing.md,
-    paddingVertical: layout.spacing.md,
+    paddingVertical: layout.spacing.sm,
   },
   headerTitle: {
     color: colors.dark.text,
-    fontSize: typography.sizes.xl,
-    fontWeight: typography.weights.bold as '700',
+    fontSize: 24,
+    fontWeight: 'bold',
   },
-  userInfoContainer: {
+  headerIcons: {
+    flexDirection: 'row',
+  },
+  iconBtn: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  userSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: layout.spacing.md,
-    marginBottom: layout.spacing.lg,
+    padding: layout.spacing.md,
+    marginTop: 10,
   },
-  userDetails: {
-    marginLeft: layout.spacing.md,
+  userText: {
+    flex: 1,
+    marginLeft: 15,
   },
-  username: {
+  nameText: {
     color: colors.dark.text,
-    fontSize: typography.sizes.xl,
-    fontWeight: typography.weights.bold as '700',
-    marginBottom: 4,
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 2,
   },
-  userHandle: {
+  handleText: {
     color: colors.dark.textSecondary,
-    fontSize: typography.sizes.sm,
-    marginBottom: 4,
+    fontSize: 14,
   },
-  userStats: {
-    color: colors.dark.textSecondary,
-    fontSize: typography.sizes.sm,
+  switchAccountBtn: {
+    padding: 8,
   },
-  manageContainer: {
-    flexDirection: 'row',
+  quickActions: {
     paddingHorizontal: layout.spacing.md,
-    marginBottom: layout.spacing.xl,
+    paddingBottom: layout.spacing.lg,
+    gap: 10,
   },
-  manageBtn: {
+  actionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.dark.surface,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: layout.borderRadius.full,
-    marginRight: layout.spacing.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginRight: 8,
+    gap: 6,
+  },
+  actionPillText: {
+    color: colors.dark.text,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.dark.border,
+    marginHorizontal: layout.spacing.md,
+  },
+  menuSection: {
+    paddingTop: 10,
+  },
+  optionItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  manageBtnText: {
-    color: colors.dark.text,
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.medium as '500',
-  },
-  sectionHeader: {
+    justifyContent: 'space-between',
     paddingHorizontal: layout.spacing.md,
-    marginBottom: layout.spacing.md,
+    paddingVertical: 14,
   },
-  sectionTitle: {
+  optionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  optionTextContainer: {
+    marginLeft: 16,
+  },
+  optionTitle: {
     color: colors.dark.text,
-    fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.bold as '700',
+    fontSize: 16,
+  },
+  optionSubtitle: {
+    color: colors.dark.textSecondary,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: colors.dark.border,
+    marginVertical: 4,
+    marginHorizontal: layout.spacing.md,
+  },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: layout.spacing.md,
+    paddingVertical: 20,
+    marginTop: 10,
+    gap: 16,
+  },
+  logoutText: {
+    color: colors.dark.primary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  footer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  footerText: {
+    color: colors.dark.textSecondary,
+    fontSize: 12,
   },
 });

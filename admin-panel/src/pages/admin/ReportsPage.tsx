@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,46 +8,32 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import { fmtDate } from "@/lib/adminMock";
-import { Search, Eye, Trash2, AlertTriangle, X, Flag, Loader2 } from "lucide-react";
+import { Search, Eye, Trash2, X, Flag, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { adminService } from "@/lib/adminService";
 
 export default function ReportsPage() {
-  const [list, setList] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<"all" | "video" | "user" | "comment">("all");
   const [q, setQ] = useState("");
   const [priority, setPriority] = useState("all");
   const [status, setStatus] = useState("all");
 
-  const fetchReports = async () => {
-    setLoading(true);
-    try {
-      const data = await adminService.getAllReports();
-      setList(data);
-    } catch (error) {
-      console.error("Error fetching reports:", error);
-      toast.error("Failed to load reports");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: list = [], isLoading } = useQuery({
+    queryKey: ["admin-reports"],
+    queryFn: adminService.getAllReports,
+  });
 
-  useEffect(() => {
-    fetchReports();
-  }, []);
+  const updateMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => adminService.resolveReport(id, status),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-reports"] });
+      toast.success(`Report ${variables.status}`);
+    },
+    onError: () => toast.error("Failed to update report")
+  });
 
-  const handleUpdate = async (id: string, s: string) => {
-    try {
-      await adminService.resolveReport(id, s);
-      toast.success(`Report ${s}`);
-      fetchReports();
-    } catch (error) {
-      toast.error("Failed to update report");
-    }
-  };
-
-  const filtered = useMemo(() => list.filter((r) => {
+  const filtered = useMemo(() => list.filter((r: any) => {
     if (tab !== "all" && r.targetType !== tab) return false;
     if (priority !== "all" && r.priority !== priority) return false;
     if (status !== "all" && r.status !== status) return false;
@@ -54,15 +41,13 @@ export default function ReportsPage() {
     return true;
   }), [list, tab, q, priority, status]);
 
-  if (loading && list.length === 0) {
+  if (isLoading) {
     return (
       <div className="flex h-[400px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
-
-
 
   return (
     <div className="space-y-6">
@@ -74,9 +59,9 @@ export default function ReportsPage() {
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
         <TabsList>
           <TabsTrigger value="all">All ({list.length})</TabsTrigger>
-          <TabsTrigger value="video">Videos ({list.filter((r) => r.targetType === "video").length})</TabsTrigger>
-          <TabsTrigger value="user">Users ({list.filter((r) => r.targetType === "user").length})</TabsTrigger>
-          <TabsTrigger value="comment">Comments ({list.filter((r) => r.targetType === "comment").length})</TabsTrigger>
+          <TabsTrigger value="video">Videos ({list.filter((r: any) => r.targetType === "video").length})</TabsTrigger>
+          <TabsTrigger value="user">Users ({list.filter((r: any) => r.targetType === "user").length})</TabsTrigger>
+          <TabsTrigger value="comment">Comments ({list.filter((r: any) => r.targetType === "comment").length})</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -120,7 +105,7 @@ export default function ReportsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((r) => (
+            {filtered.map((r: any) => (
               <TableRow key={r._id}>
                 <TableCell><span className="text-xs font-semibold uppercase">{r.targetType}</span></TableCell>
                 <TableCell className="font-mono text-xs max-w-[120px] truncate">{r.targetId}</TableCell>
@@ -130,8 +115,24 @@ export default function ReportsPage() {
                 <TableCell><StatusBadge status={r.priority} /></TableCell>
                 <TableCell><StatusBadge status={r.status} /></TableCell>
                 <TableCell className="text-right whitespace-nowrap">
-                  <Button size="sm" variant="ghost" onClick={() => handleUpdate(r._id, "resolved")} title="Resolve"><Eye className="w-4 h-4" /></Button>
-                  <Button size="sm" variant="ghost" onClick={() => handleUpdate(r._id, "dismissed")} title="Dismiss"><X className="w-4 h-4" /></Button>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    onClick={() => updateMutation.mutate({ id: r._id, status: "resolved" })} 
+                    disabled={updateMutation.isPending}
+                    title="Resolve"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    onClick={() => updateMutation.mutate({ id: r._id, status: "dismissed" })} 
+                    disabled={updateMutation.isPending}
+                    title="Dismiss"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
                   <Button size="sm" variant="ghost" className="text-destructive" title="Remove content"><Trash2 className="w-4 h-4" /></Button>
                 </TableCell>
               </TableRow>

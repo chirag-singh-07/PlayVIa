@@ -11,6 +11,7 @@ import { LibraryScreen } from '../screens/LibraryScreen';
 import { DownloadManagerScreen } from '../screens/DownloadManagerScreen';
 import { YourVideosScreen } from '../screens/YourVideosScreen';
 import { ChannelProfileScreen } from '../screens/ChannelProfileScreen';
+import { ChannelEditScreen } from '../screens/ChannelEditScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { SearchResultsFilterScreen } from '../screens/SearchResultsFilterScreen';
 import { colors } from '../theme';
@@ -47,7 +48,7 @@ export const AppNavigator = () => {
       />
       
       {/* New Screens */}
-      <Stack.Screen name="ChannelCreate" component={ChannelCreateScreen} />
+      <Stack.Screen name="CreateChannel" component={ChannelCreateScreen} />
       <Stack.Screen name="ChannelDashboard" component={ChannelDashboardScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="Search" component={SearchScreen} options={{ animation: 'fade' }} />
@@ -55,6 +56,7 @@ export const AppNavigator = () => {
       <Stack.Screen name="DownloadManager" component={DownloadManagerScreen} />
       <Stack.Screen name="YourVideos" component={YourVideosScreen} />
       <Stack.Screen name="ChannelProfile" component={ChannelProfileScreen} />
+      <Stack.Screen name="ChannelEdit" component={ChannelEditScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       
       <Stack.Screen 

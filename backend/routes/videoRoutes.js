@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { uploadVideo, getVideoById, toggleLikeVideo, getVideoFeed, getRecommendations, getTrendingVideos } = require('../controllers/videoController');
-const { protect } = require('../middleware/authMiddleware');
+const { uploadVideo, getVideoById, toggleLikeVideo, getVideoFeed, getRecommendations, getTrendingVideos, getCategories, updateVideoDuration } = require('../controllers/videoController');
+const { protect, protectOptional } = require('../middleware/authMiddleware');
 const { upload } = require('../config/cloudinary');
 
 router.post(
@@ -14,10 +14,13 @@ router.post(
   uploadVideo
 );
 
-router.get('/feed', getVideoFeed);
+router.get('/feed', protectOptional, getVideoFeed);
 router.get('/trending', getTrendingVideos);
 router.get('/recommendations', protect, getRecommendations);
+router.get('/categories', getCategories);
 router.get('/:id', getVideoById);
-router.post('/like', protect, toggleLikeVideo);
+router.post('/:id/like', protect, toggleLikeVideo);
+router.post('/like', protect, toggleLikeVideo); // Keep old route for compatibility
 
+router.put('/:id/duration', protectOptional, updateVideoDuration);
 module.exports = router;

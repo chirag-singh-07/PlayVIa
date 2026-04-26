@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ColumnDef, flexRender, getCoreRowModel, getFilteredRowModel,
   getPaginationRowModel, getSortedRowModel, SortingState, useReactTable,
@@ -15,9 +16,9 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   Search, Download, MoreHorizontal, Eye, Edit, Ban, Trash2,
-  ChevronLeft, ChevronRight, ArrowUpDown, BadgeCheck, Mail, Phone, MapPin, Users, UserPlus, UserX, Star, Loader2,
+  ChevronLeft, ChevronRight, ArrowUpDown, BadgeCheck, Mail, Users, UserPlus, UserX, Star, Loader2,
 } from "lucide-react";
-import { generateUsers, fmtDate, USER_STATUSES, type AdminUserRecord } from "@/lib/adminMock";
+import { fmtDate, USER_STATUSES } from "@/lib/adminMock";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { adminService } from "@/lib/adminService";
@@ -33,11 +34,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-
-
 export default function UsersPage() {
-  const [users, setUsers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -46,50 +44,33 @@ export default function UsersPage() {
   const [active, setActive] = useState<any | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const fetchUsers = async () => {
-    setLoading(true);
-    try {
-      const data = await adminService.getUsers();
-      setUsers(data);
-    } catch (error) {
-      console.error("Error fetching users:", error);
-      toast.error("Failed to load users");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: users = [], isLoading } = useQuery({
+    queryKey: ["admin-users"],
+    queryFn: adminService.getUsers,
+  });
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const handleBan = async (id: string) => {
-    try {
-      await adminService.toggleUserBan(id);
+  const banMutation = useMutation({
+    mutationFn: adminService.toggleUserBan,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       toast.success("User status updated");
-      fetchUsers();
-      if (active && active._id === id) setActive(null);
-    } catch (error) {
-      toast.error("Failed to update user status");
-    }
-  };
+      setActive(null);
+    },
+    onError: () => toast.error("Failed to update user status")
+  });
 
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    
-    try {
-      await adminService.deleteUser(deleteId);
+  const deleteMutation = useMutation({
+    mutationFn: adminService.deleteUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       toast.success("User deleted successfully");
-      fetchUsers();
-      if (active && active._id === deleteId) setActive(null);
-    } catch (error) {
-      toast.error("Failed to delete user");
-    } finally {
+      setActive(null);
       setDeleteId(null);
-    }
-  };
+    },
+    onError: () => toast.error("Failed to delete user")
+  });
 
-  const data = useMemo(() => users.filter((u) => {
+  const filteredData = useMemo(() => users.filter((u: any) => {
     const q = search.trim().toLowerCase();
     const passQ = !q || u.username.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
     const status = u.isBanned ? "Banned" : "Active";
@@ -157,7 +138,7 @@ export default function UsersPage() {
               className="text-warning focus:text-warning"
               onClick={(e) => {
                 e.stopPropagation();
-                handleBan(row.original._id);
+                banMutation.mutate(row.original._id);
               }}
             >
               <Ban className="w-4 h-4 mr-2" /> {row.original.isBanned ? "Unban" : "Ban"}
@@ -175,26 +156,26 @@ export default function UsersPage() {
         </DropdownMenu>
       ),
     },
-  ], [users]);
+  ], []);
 
   const table = useReactTable({
-    data, columns, state: { sorting, rowSelection },
+    data: filteredData, columns, state: { sorting, rowSelection },
     onSortingChange: setSorting, onRowSelectionChange: setRowSelection,
     getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(), getFilteredRowModel: getFilteredRowModel(),
     initialState: { pagination: { pageSize: 25 } },
   });
 
-  const selected = Object.keys(rowSelection).length;
+  const selectedCount = Object.keys(rowSelection).length;
 
   const stats = [
     { Icon: Users, label: "Total Users", value: users.length, color: "text-primary", bg: "bg-primary/10" },
-    { Icon: UserPlus, label: "Verified", value: users.filter(u => u.isVerified).length, color: "text-success", bg: "bg-success/10" },
-    { Icon: UserX, label: "Banned", value: users.filter(u => u.isBanned).length, color: "text-destructive", bg: "bg-destructive/10" },
-    { Icon: Star, label: "Admins", value: users.filter(u => u.role === "admin").length, color: "text-warning", bg: "bg-warning/10" },
+    { Icon: UserPlus, label: "Verified", value: users.filter((u: any) => u.isVerified).length, color: "text-success", bg: "bg-success/10" },
+    { Icon: UserX, label: "Banned", value: users.filter((u: any) => u.isBanned).length, color: "text-destructive", bg: "bg-destructive/10" },
+    { Icon: Star, label: "Admins", value: users.filter((u: any) => u.role === "admin").length, color: "text-warning", bg: "bg-warning/10" },
   ];
 
-  if (loading && users.length === 0) {
+  if (isLoading) {
     return (
       <div className="flex h-[400px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -214,7 +195,6 @@ export default function UsersPage() {
         </Button>
       </div>
 
-      {/* Stats row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {stats.map((s) => (
           <Card key={s.label} className="p-4 flex items-center gap-3">
@@ -239,9 +219,9 @@ export default function UsersPage() {
             <SelectTrigger className="md:w-[140px]"><SelectValue placeholder="Role" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All roles</SelectItem>
-              <SelectItem value="User">User</SelectItem>
-              <SelectItem value="Creator">Creator</SelectItem>
-              <SelectItem value="Premium">Premium</SelectItem>
+              <SelectItem value="user">User</SelectItem>
+              <SelectItem value="creator">Creator</SelectItem>
+              <SelectItem value="admin">Admin</SelectItem>
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -252,15 +232,6 @@ export default function UsersPage() {
             </SelectContent>
           </Select>
         </div>
-        {selected > 0 && (
-          <div className="mt-3 flex items-center justify-between gap-3 p-3 rounded-lg bg-primary/10 border border-primary/20">
-            <div className="text-sm font-medium">{selected} selected</div>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => toast.success("Banned")}>Ban</Button>
-              <Button size="sm" variant="outline" className="text-destructive" onClick={() => toast.success("Deleted")}>Delete</Button>
-            </div>
-          </div>
-        )}
       </Card>
 
       <Card className="overflow-hidden">
@@ -299,7 +270,7 @@ export default function UsersPage() {
         <div className="flex items-center justify-between px-4 py-3 border-t border-border flex-wrap gap-2">
           <div className="text-xs text-muted-foreground">
             Showing {table.getState().pagination.pageIndex * 25 + 1}–
-            {Math.min((table.getState().pagination.pageIndex + 1) * 25, data.length)} of {data.length}
+            {Math.min((table.getState().pagination.pageIndex + 1) * 25, filteredData.length)} of {filteredData.length}
           </div>
           <div className="flex items-center gap-1">
             <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
@@ -315,7 +286,6 @@ export default function UsersPage() {
         </div>
       </Card>
 
-      {/* User detail drawer */}
       <Sheet open={!!active} onOpenChange={(o) => !o && setActive(null)}>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
           {active && (
@@ -357,7 +327,8 @@ export default function UsersPage() {
                     variant="outline" 
                     size="sm" 
                     className="text-warning hover:text-warning"
-                    onClick={() => handleBan(active._id)}
+                    onClick={() => banMutation.mutate(active._id)}
+                    disabled={banMutation.isPending}
                   >
                     <Ban className="w-4 h-4 mr-2" /> {active.isBanned ? "Unban" : "Ban"}
                   </Button>
@@ -387,8 +358,12 @@ export default function UsersPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete User
+            <AlertDialogAction 
+              onClick={() => deleteId && deleteMutation.mutate(deleteId)} 
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete User"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

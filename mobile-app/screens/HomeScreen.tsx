@@ -9,7 +9,7 @@ import { EmptyState } from '../components/EmptyState';
 import { useScrollHeader } from '../hooks/useScrollHeader';
 import { layout } from '../constants';
 import { videoService } from '../services/videoService';
-import { formatViews, formatTimeAgo, formatDuration } from '../utils/videoUtils';
+import { formatViews, formatTimeAgo, formatDuration, getCloudinaryThumbnail } from '../utils/videoUtils';
 
 import { VideoSkeleton } from '../components/VideoSkeleton';
 
@@ -64,13 +64,18 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
           renderItem={({ item }) => (
             <VideoCard
               title={item.title}
-              thumbnail={item.thumbnailUrl}
+              thumbnail={item.thumbnailUrl || getCloudinaryThumbnail(item.videoUrl) || ''}
               channelName={item.channel?.name || 'Unknown Channel'}
               channelAvatar={item.channel?.avatar || ''}
               views={formatViews(item.views || 0)}
               createdAt={formatTimeAgo(item.createdAt)}
               duration={formatDuration(item.duration)}
               onPress={() => navigation.navigate('VideoPlayer', { video: item })}
+              onChannelPress={() => {
+                if (item.channel?._id) {
+                  navigation.navigate('ChannelProfile', { channelId: item.channel._id });
+                }
+              }}
             />
           )}
           showsVerticalScrollIndicator={false}

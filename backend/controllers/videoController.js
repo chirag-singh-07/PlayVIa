@@ -6,8 +6,8 @@ const Channel = require('../models/Channel');
 // @route   POST /api/video/upload
 // @access  Private
 const uploadVideo = asyncHandler(async (req, res) => {
-  const { title, description, videoType } = req.body;
-
+  const { title, description, videoType, duration } = req.body;
+  
   const channel = await Channel.findOne({ owner: req.user._id });
   if (!channel) {
     res.status(400);
@@ -22,13 +22,33 @@ const uploadVideo = asyncHandler(async (req, res) => {
   const videoFile = req.files.video[0];
   const thumbnailFile = req.files.thumbnail ? req.files.thumbnail[0] : null;
 
+  let finalVideoType = videoType || 'video';
+  
+  // Extract duration from file metadata (Cloudinary) or request body
+  const finalDuration = duration ? Number(duration) : (videoFile.duration ? Math.round(videoFile.duration) : 0);
+
+  // If duration is less than or equal to 60 seconds, it's a short
+  if (finalDuration && finalDuration <= 60) {
+    finalVideoType = 'short';
+  }
+
+  // Fallback thumbnail if not provided
+  let finalThumbnailUrl = thumbnailFile ? thumbnailFile.location : '';
+  if (!finalThumbnailUrl && videoFile.location && videoFile.location.includes('cloudinary.com')) {
+    // Generate a frame capture from Cloudinary video
+    finalThumbnailUrl = videoFile.location
+      .replace(/\.[^/.]+$/, ".jpg")
+      .replace("/video/upload/", "/video/upload/so_auto/");
+  }
+
   const video = await Video.create({
     channel: channel._id,
     title,
     description,
-    videoUrl: videoFile.path, // Cloudinary URL
-    thumbnailUrl: thumbnailFile ? thumbnailFile.path : '',
-    videoType: videoType || 'video',
+    videoUrl: videoFile.location,
+    thumbnailUrl: finalThumbnailUrl,
+    videoType: finalVideoType,
+    duration: finalDuration,
     category: req.body.category || 'General',
     tags: req.body.tags ? req.body.tags.split(',').map(tag => tag.trim()) : [],
   });
@@ -57,7 +77,7 @@ const uploadVideo = asyncHandler(async (req, res) => {
 // @route   GET /api/video/:id
 // @access  Public
 const getVideoById = asyncHandler(async (req, res) => {
-  const video = await Video.findById(req.params.id).populate('channel', 'name subscribersCount banner');
+  const video = await Video.findById(req.params.id).populate('channel', 'name subscribersCount banner avatar');
 
   if (video) {
     // Increment view
@@ -104,7 +124,7 @@ const getVideoById = asyncHandler(async (req, res) => {
 // @route   POST /api/video/like
 // @access  Private
 const toggleLikeVideo = asyncHandler(async (req, res) => {
-  const { videoId } = req.body;
+  const videoId = req.params.id || req.body.videoId;
 
   const video = await Video.findById(videoId);
 
@@ -157,8 +177,20 @@ const getVideoFeed = asyncHandler(async (req, res) => {
       }
     : {};
 
-  const count = await Video.countDocuments({ ...keyword });
-  const videos = await Video.find({ ...keyword })
+  const query = { ...keyword };
+  if (req.query.videoType) {
+    query.videoType = req.query.videoType;
+  }
+  
+  if (req.user && req.query.videoType === 'short') {
+    const userChannel = await Channel.findOne({ owner: req.user._id });
+    if (userChannel) {
+      query.channel = { $ne: userChannel._id };
+    }
+  }
+
+  const count = await Video.countDocuments(query);
+  const videos = await Video.find(query)
     .populate('channel', 'name avatar')
     .sort({ createdAt: -1 })
     .limit(pageSize)
@@ -218,6 +250,32 @@ const getTrendingVideos = asyncHandler(async (req, res) => {
   res.json(trending);
 });
 
+// @desc    Get all categories
+// @route   GET /api/video/categories
+// @access  Public
+const getCategories = asyncHandler(async (req, res) => {
+  const Category = require('../models/Category');
+  const categories = await Category.find({ isActive: true });
+  res.json(categories);
+});
+
+// @desc    Update video duration
+// @route   PUT /api/video/:id/duration
+// @access  Public (Optional Protect)
+const updateVideoDuration = asyncHandler(async (req, res) => {
+  const { duration } = req.body;
+  const video = await Video.findById(req.params.id);
+
+  if (video) {
+    video.duration = Number(duration);
+    await video.save();
+    res.json({ message: 'Duration updated', duration: video.duration });
+  } else {
+    res.status(404);
+    throw new Error('Video not found');
+  }
+});
+
 module.exports = {
   uploadVideo,
   getVideoById,
@@ -225,4 +283,6 @@ module.exports = {
   getVideoFeed,
   getRecommendations,
   getTrendingVideos,
+  getCategories,
+  updateVideoDuration,
 };

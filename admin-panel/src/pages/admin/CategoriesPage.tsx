@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,8 +17,7 @@ import { toast } from "sonner";
 import { adminService } from "@/lib/adminService";
 
 export default function CategoriesPage() {
-  const [list, setList] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [editing, setEditing] = useState<any | null>(null);
   const [open, setOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -25,24 +25,46 @@ export default function CategoriesPage() {
     name: "", slug: "", icon: "📁", description: "", active: true,
   });
 
-  const total = useMemo(() => list.reduce((s, c) => s + (c.videos || 0), 0), [list]);
+  const { data: list = [], isLoading } = useQuery({
+    queryKey: ["admin-categories"],
+    queryFn: adminService.getCategories,
+  });
 
-  const fetchCategories = async () => {
-    setLoading(true);
-    try {
-      const data = await adminService.getCategories();
-      setList(data);
-    } catch (error) {
-      console.error("Error fetching categories:", error);
-      toast.error("Failed to load categories");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (editing) {
+        return adminService.updateCategory(editing._id, form);
+      } else {
+        return adminService.addCategory(form);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-categories"] });
+      toast.success(editing ? "Category updated" : "Category created");
+      setOpen(false);
+    },
+    onError: () => toast.error("Failed to save category")
+  });
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
+  const deleteMutation = useMutation({
+    mutationFn: adminService.deleteCategory,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-categories"] });
+      toast.success("Category deleted");
+      setDeleteConfirm(null);
+    },
+    onError: () => toast.error("Failed to delete category")
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, active }: { id: string; active: boolean }) => adminService.updateCategory(id, { active }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-categories"] });
+    },
+    onError: () => toast.error("Failed to update category status")
+  });
+
+  const total = useMemo(() => list.reduce((s: number, c: any) => s + (c.videosCount || 0), 0), [list]);
 
   function openNew() {
     setEditing(null);
@@ -55,51 +77,8 @@ export default function CategoriesPage() {
     setForm({ name: c.name, slug: c.slug, icon: c.icon || "📁", description: c.description || "", active: c.active });
     setOpen(true);
   }
-  
-  async function save() {
-    if (!form.name.trim()) { toast.error("Name is required"); return; }
-    try {
-      if (editing) {
-        await adminService.updateCategory(editing._id, form);
-        toast.success("Category updated");
-      } else {
-        await adminService.addCategory(form);
-        toast.success("Category created");
-      }
-      setOpen(false);
-      fetchCategories();
-    } catch (error) {
-      toast.error("Failed to save category");
-    }
-  }
-  
-  async function remove(id: string) {
-    try {
-      await adminService.deleteCategory(id);
-      toast.success("Category deleted");
-      fetchCategories();
-    } catch (error) {
-      toast.error("Failed to delete category");
-    } finally {
-      setDeleteConfirm(null);
-    }
-  }
-  
-  async function toggle(id: string, currentActive: boolean) {
-    try {
-      await adminService.updateCategory(id, { active: !currentActive });
-      setList((p) => p.map((x) => x._id === id ? { ...x, active: !currentActive } : x));
-    } catch (error) {
-      toast.error("Failed to update category status");
-    }
-  }
-  
-  function move(id: string, dir: -1 | 1) {
-    // We would need an API to update ordering
-    toast.info("Ordering not fully implemented in backend yet");
-  }
 
-  if (loading && list.length === 0) {
+  if (isLoading) {
     return (
       <div className="flex h-[400px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -132,7 +111,10 @@ export default function CategoriesPage() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button onClick={save}>{editing ? "Save" : "Create"}</Button>
+              <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+                {saveMutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                {editing ? "Save" : "Create"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -153,19 +135,19 @@ export default function CategoriesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {list.map((c) => (
+            {list.map((c: any) => (
               <TableRow key={c._id}>
                 <TableCell>
                   <div className="flex flex-col items-center">
-                    <button onClick={() => move(c._id, -1)} className="text-muted-foreground hover:text-foreground"><GripVertical className="w-4 h-4" /></button>
+                    <button className="text-muted-foreground hover:text-foreground cursor-grab"><GripVertical className="w-4 h-4" /></button>
                   </div>
                 </TableCell>
                 <TableCell className="text-2xl">{c.icon}</TableCell>
                 <TableCell className="font-medium">{c.name}</TableCell>
                 <TableCell className="text-muted-foreground font-mono text-xs">{c.slug}</TableCell>
                 <TableCell className="hidden md:table-cell text-sm text-muted-foreground max-w-xs truncate">{c.description}</TableCell>
-                <TableCell className="text-right font-semibold">{(c.videos || 0).toLocaleString("en-IN")}</TableCell>
-                <TableCell><Switch checked={c.active} onCheckedChange={() => toggle(c._id, c.active)} /></TableCell>
+                <TableCell className="text-right font-semibold">{(c.videosCount || 0).toLocaleString("en-IN")}</TableCell>
+                <TableCell><Switch checked={c.active} onCheckedChange={(v) => toggleMutation.mutate({ id: c._id, active: v })} disabled={toggleMutation.isPending} /></TableCell>
                 <TableCell className="text-right">
                   <Button size="sm" variant="ghost" onClick={() => openEdit(c)}><Pencil className="w-4 h-4" /></Button>
                   <Button size="sm" variant="ghost" onClick={() => setDeleteConfirm(c._id)} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
@@ -191,8 +173,12 @@ export default function CategoriesPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deleteConfirm && remove(deleteConfirm)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+            <AlertDialogAction 
+              onClick={() => deleteConfirm && deleteMutation.mutate(deleteConfirm)} 
+              disabled={deleteMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

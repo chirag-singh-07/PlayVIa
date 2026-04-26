@@ -27,6 +27,13 @@ export const isDailymotionUrl = (url: string): boolean => {
   return dailymotionRegex.test(url);
 };
 
+export const getCloudinaryThumbnail = (videoUrl: string): string | null => {
+  if (!videoUrl || !videoUrl.includes('cloudinary.com')) return null;
+  return videoUrl
+    .replace(/\.[^/.]+$/, ".jpg")
+    .replace("/video/upload/", "/video/upload/so_auto/");
+};
+
 // FIXED: replaced expo-video-thumbnails with static image placeholder
 export const getVideoThumbnail = async (url: string): Promise<string | null> => {
   try {
@@ -56,6 +63,9 @@ export const getVideoThumbnail = async (url: string): Promise<string | null> => 
       const videoId = match ? match[1] : null;
       return videoId ? `https://www.dailymotion.com/thumbnail/video/${videoId}` : null;
     }
+
+    const cloudinaryThumb = getCloudinaryThumbnail(url);
+    if (cloudinaryThumb) return cloudinaryThumb;
 
     // FIXED: replaced expo-video-thumbnails with static image placeholder
     return 'https://via.placeholder.com/640x360.png?text=PlayVia+Video'; 
@@ -173,6 +183,7 @@ export const downloadFile = async (url: string): Promise<string | null> => {
 };
 
 export const formatViews = (views: number): string => {
+  if (views === undefined || views === null || isNaN(views)) return '0';
   if (views >= 1000000) {
     return (views / 1000000).toFixed(1) + 'M';
   }
@@ -202,7 +213,7 @@ export const formatTimeAgo = (date: string | Date): string => {
 };
 
 export const formatDuration = (seconds: number): string => {
-  if (!seconds) return '0:00';
+  if (seconds === undefined || seconds === null || isNaN(seconds) || seconds <= 0) return '0:00';
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;

@@ -8,6 +8,8 @@ const Setting = require('../models/Setting');
 const Comment = require('../models/Comment');
 const CreatorApplication = require('../models/CreatorApplication');
 const Channel = require('../models/Channel');
+const Payout = require('../models/Payout');
+const { cloudinary } = require('../config/cloudinary');
 
 // @desc    Get admin dashboard stats
 // @route   GET /api/admin/stats
@@ -92,7 +94,7 @@ const toggleUserBan = asyncHandler(async (req, res) => {
 const getAllVideos = asyncHandler(async (req, res) => {
   const videos = await Video.find()
     .sort({ createdAt: -1 })
-    .populate('channel', 'name');
+    .populate('channel', 'name avatar');
   res.json(videos);
 });
 
@@ -333,6 +335,121 @@ const deleteUser = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Upload a video by admin
+// @route   POST /api/admin/videos/upload
+// @access  Private/Admin
+const uploadVideoByAdmin = asyncHandler(async (req, res) => {
+  const { title, description, videoType, category } = req.body;
+
+  let channel = await Channel.findOne({ owner: req.user._id });
+  if (!channel) {
+    // Auto-create a channel for admin if they don't have one
+    channel = await Channel.create({
+      owner: req.user._id,
+      name: `${req.user.username} Admin`,
+      description: 'Official Admin Channel',
+    });
+  }
+
+  if (!req.files || !req.files.video) {
+    res.status(400);
+    throw new Error('No video file provided');
+  }
+
+  const videoFile = req.files.video[0];
+  const thumbnailFile = req.files.thumbnail ? req.files.thumbnail[0] : null;
+
+  // Extract duration from file metadata (Cloudinary) or request body
+  const finalDuration = req.body.duration ? Number(req.body.duration) : (videoFile.duration ? Math.round(videoFile.duration) : 0);
+
+  // Fallback thumbnail if not provided
+  let finalThumbnailUrl = thumbnailFile ? thumbnailFile.location : '';
+  if (!finalThumbnailUrl && videoFile.location && videoFile.location.includes('cloudinary.com')) {
+    // Generate a frame capture from Cloudinary video
+    finalThumbnailUrl = videoFile.location
+      .replace(/\.[^/.]+$/, ".jpg")
+      .replace("/video/upload/", "/video/upload/so_auto/");
+  }
+
+  const video = await Video.create({
+    channel: channel._id,
+    title,
+    description,
+    videoUrl: videoFile.location,
+    thumbnailUrl: finalThumbnailUrl,
+    videoType: videoType || 'video',
+    duration: finalDuration,
+    category: category || 'General',
+    isPublished: true,
+  });
+
+  res.status(201).json(video);
+});
+
+// @desc    Get storage statistics
+// @route   GET /api/admin/storage
+// @access  Private/Admin
+const getStorageStats = asyncHandler(async (req, res) => {
+  let storageUsage = {};
+  try {
+    storageUsage = await cloudinary.api.usage();
+  } catch (error) {
+    console.error('Storage usage fetch failed:', error);
+    // Return empty or mock usage if Cloudinary fails
+    storageUsage = {
+      plan: {
+        storage: { used: 0, limit: 10 * 1024 * 1024 * 1024 },
+        bandwidth: { used: 0, limit: 10 * 1024 * 1024 * 1024 }
+      }
+    };
+  }
+  
+  const videoCount = await Video.countDocuments();
+  const shortCount = await Video.countDocuments({ videoType: 'short' });
+  const totalViews = await Video.aggregate([
+    { $group: { _id: null, total: { $sum: "$views" } } }
+  ]);
+
+  res.json({
+    cloudinary: storageUsage,
+    db: {
+      videoCount,
+      shortCount,
+      totalViews: totalViews[0]?.total || 0,
+    }
+  });
+});
+
+// @desc    Get all withdrawals for admin
+// @route   GET /api/admin/withdrawals
+// @access  Private/Admin
+const getWithdrawals = asyncHandler(async (req, res) => {
+  const withdrawals = await Payout.find()
+    .populate('user', 'username email avatar')
+    .sort('-createdAt');
+  res.json(withdrawals);
+});
+
+// @desc    Update withdrawal status
+// @route   PUT /api/admin/withdrawals/:id
+// @access  Private/Admin
+const updateWithdrawalStatus = asyncHandler(async (req, res) => {
+  const { status } = req.body;
+  const withdrawal = await Payout.findById(req.params.id);
+
+  if (withdrawal) {
+    withdrawal.status = status;
+    if (status === 'paid') {
+      withdrawal.processedAt = Date.now();
+    }
+    await withdrawal.save();
+    res.json(withdrawal);
+  } else {
+    res.status(404);
+    throw new Error('Withdrawal request not found');
+  }
+});
+
 module.exports = {
   getAdminStats,
   getRecentVideos,
@@ -343,6 +460,7 @@ module.exports = {
   deleteUser,
   getAllVideos,
   deleteVideo,
+  uploadVideoByAdmin,
   getAllReports,
   resolveReport,
   getCategories,
@@ -358,4 +476,7 @@ module.exports = {
   getCreatorApplications,
   updateCreatorApplication,
   getAllChannels,
+  getStorageStats,
+  getWithdrawals,
+  updateWithdrawalStatus,
 };

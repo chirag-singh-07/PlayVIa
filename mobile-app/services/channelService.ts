@@ -22,7 +22,21 @@ export const channelService = {
   },
 
   createChannel: async (channelData: any) => {
-    const response = await api.post('/channel', channelData);
+    const response = await api.post('/channel/create', channelData);
+    return response.data;
+  },
+  
+  getMyChannel: async () => {
+    const response = await api.get('/channel/me');
+    return response.data;
+  },
+
+  updateChannel: async (id: string, formData: FormData) => {
+    const response = await api.put(`/channel/${id}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data;
   }
 };

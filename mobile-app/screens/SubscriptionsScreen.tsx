@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Header } from '../components/Header';
 import { VideoCard } from '../components/VideoCard';
 import { Avatar } from '../components/Avatar';
@@ -8,7 +8,6 @@ import { colors, typography } from '../theme';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 
 import { subscriptionService } from '../services/subscriptionService';
-import { ActivityIndicator } from 'react-native';
 import { formatViews, formatTimeAgo, formatDuration } from '../utils/videoUtils';
 
 export const SubscriptionsScreen: React.FC<any> = ({ navigation }) => {

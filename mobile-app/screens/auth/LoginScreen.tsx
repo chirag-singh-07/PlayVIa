@@ -18,7 +18,7 @@ import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import { ScreenWrapper } from '../../components/ScreenWrapper';
 
 import { useAuth } from '../../context/AuthContext';
-import { Alert } from 'react-native';
+import { showAuthError } from '../../utils/errorHandler';
 
 export const LoginScreen: React.FC<any> = ({ navigation }) => {
   const { theme } = useTheme();
@@ -36,22 +36,21 @@ export const LoginScreen: React.FC<any> = ({ navigation }) => {
   const { login: authLogin } = useAuth();
 
   const handleLogin = async () => {
-    console.log('Login attempt:', email);
     if (!isFormValid) {
-      console.log('Login form invalid');
+      if (!validateEmail(email)) {
+        showAuthError({ response: { status: 400, data: { message: 'Please enter a valid email address.' } } });
+      } else if (password.length < 6) {
+        showAuthError({ response: { status: 400, data: { message: 'Password must be at least 6 characters.' } } });
+      }
       return;
     }
     setIsLoading(true);
     try {
-      console.log('Calling authLogin...');
       await authLogin(email, password);
-      console.log('Login success');
       // AuthProvider will automatically switch to AppNavigator
     } catch (error: any) {
-      console.error('Login error:', error);
       setIsLoading(false);
-      const errorMsg = error.response?.data?.message || 'Failed to login. Please check your network and credentials.';
-      Alert.alert('Login Failed', errorMsg);
+      showAuthError(error);
     }
   };
 

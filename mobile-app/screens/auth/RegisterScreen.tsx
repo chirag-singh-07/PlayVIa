@@ -14,6 +14,7 @@ import { useFormValidation } from '../../hooks/useFormValidation';
 import { ScreenWrapper } from '../../components/ScreenWrapper';
 
 import { authService } from '../../services/authService';
+import { showAuthError } from '../../utils/errorHandler';
 import { Alert } from 'react-native';
 
 export const RegisterScreen: React.FC<any> = ({ navigation }) => {
@@ -45,24 +46,36 @@ export const RegisterScreen: React.FC<any> = ({ navigation }) => {
     agreed;
 
   const handleRegister = async () => {
-    console.log('Register attempt:', formData);
     if (!isValid) {
-      console.log('Form invalid. Check fields.');
+      if (formData.name.length < 2) {
+        Alert.alert('👤 Name Too Short', 'Please enter your full name (at least 2 characters).');
+      } else if (!validateUsername(formData.username)) {
+        Alert.alert('👤 Invalid Username', 'Username must be 3–20 characters and can only contain letters, numbers, and underscores (_).');
+      } else if (!validateEmail(formData.email)) {
+        Alert.alert('📧 Invalid Email', 'Please enter a valid email address (e.g. you@gmail.com).');
+      } else if (!validatePhone(formData.phone)) {
+        Alert.alert('📱 Invalid Phone', 'Please enter a valid 10-digit phone number.');
+      } else if (passwordScore < 2) {
+        Alert.alert('🔐 Weak Password', 'Your password is too weak.\n\nTip: Use at least 8 characters with a mix of letters and numbers.');
+      } else if (formData.password !== formData.confirmPassword) {
+        Alert.alert('🔐 Passwords Don\'t Match', 'The passwords you entered don\'t match. Please re-enter them.');
+      } else if (!agreed) {
+        Alert.alert('📋 Terms Required', 'Please agree to the Terms of Service and Privacy Policy to continue.');
+      }
       return;
     }
-    
+
     setIsLoading(true);
     try {
-      console.log('Calling authService.register...');
       const response = await authService.register(formData);
-      console.log('Register success:', response);
       setIsLoading(false);
-      navigation.navigate('OTPVerification', { email: formData.email });
+      navigation.navigate('OTPVerification', {
+        email: formData.email,
+        devOtp: response.devOtp,
+      });
     } catch (error: any) {
-      console.error('Register error:', error);
       setIsLoading(false);
-      const errorMsg = error.response?.data?.message || 'Failed to register. Please check your network and try again.';
-      Alert.alert('Registration Failed', errorMsg);
+      showAuthError(error);
     }
   };
 

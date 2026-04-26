@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,9 +11,8 @@ import { OTPInput } from '../../components/auth/OTPInput';
 import { AuthButton } from '../../components/auth/AuthButton';
 import { useOTPTimer } from '../../hooks/useOTPTimer';
 import { ScreenWrapper } from '../../components/ScreenWrapper';
-
 import { authService } from '../../services/authService';
-import { Alert } from 'react-native';
+import { showAuthError } from '../../utils/errorHandler';
 
 export const OTPVerificationScreen: React.FC<any> = ({ navigation, route }) => {
   const { theme } = useTheme();
@@ -21,27 +20,59 @@ export const OTPVerificationScreen: React.FC<any> = ({ navigation, route }) => {
   const { seconds, isActive, resetTimer } = useOTPTimer(30);
 
   const email = route?.params?.email || '';
-  
+  const devOtp = route?.params?.devOtp || null;
+
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // If email failed to send and devOtp was returned, show a banner
+  useEffect(() => {
+    if (devOtp) {
+      Alert.alert(
+        '⚠️ Email Not Sent',
+        `Email delivery failed.\n\nYour OTP for testing is:\n\n${devOtp}\n\nThis is only shown in development mode.`,
+        [{ text: 'Copy OTP & Continue', style: 'default' }]
+      );
+    }
+  }, [devOtp]);
 
   const handleVerify = async () => {
     const cleanOtp = otp.replace(/\D/g, '').trim();
     if (cleanOtp.length < 6) {
-      Alert.alert('Incomplete OTP', 'Please enter all 6 digits.');
+      Alert.alert(
+        '🔢 Incomplete Code',
+        'Please enter all 6 digits of the verification code sent to your email.'
+      );
       return;
     }
     setIsLoading(true);
     try {
       await authService.verifyOtp(email, cleanOtp);
       setIsLoading(false);
-      Alert.alert('Success! 🎉', 'Email verified successfully. You can now login.', [
-        { text: 'Go to Login', onPress: () => navigation.navigate('Login') }
-      ]);
+      Alert.alert(
+        '✅ Email Verified!',
+        'Your account has been verified successfully. You can now log in.',
+        [{ text: 'Go to Login', onPress: () => navigation.navigate('Login') }]
+      );
     } catch (error: any) {
       setIsLoading(false);
-      const errorMsg = error.response?.data?.message || 'Invalid OTP. Please try again.';
-      Alert.alert('Verification Failed', errorMsg);
+
+      // Special case: too many attempts
+      const status = error.response?.status;
+      const msg = error.response?.data?.message || '';
+      if (status === 403 && msg.toLowerCase().includes('too many')) {
+        Alert.alert(
+          '🚫 Too Many Wrong Attempts',
+          'You have entered the wrong OTP 3 times.\n\nPlease request a new code.',
+          [
+            { text: 'Resend New OTP', onPress: handleResend, style: 'default' },
+            { text: 'Cancel', style: 'cancel' },
+          ]
+        );
+        return;
+      }
+
+      showAuthError(error);
     }
   };
 
@@ -49,10 +80,12 @@ export const OTPVerificationScreen: React.FC<any> = ({ navigation, route }) => {
     try {
       await authService.resendOtp(email);
       resetTimer();
-      Alert.alert('Success', 'A new OTP has been sent to your email.');
+      Alert.alert(
+        '📧 New OTP Sent',
+        `A fresh verification code has been sent to:\n${email}\n\nPlease check your inbox (and spam folder).`
+      );
     } catch (error: any) {
-      const errorMsg = error.response?.data?.message || 'Failed to resend OTP.';
-      Alert.alert('Error', errorMsg);
+      showAuthError(error);
     }
   };
 
@@ -64,7 +97,7 @@ export const OTPVerificationScreen: React.FC<any> = ({ navigation, route }) => {
         </TouchableOpacity>
       </View>
 
-      <KeyboardAwareScrollView 
+      <KeyboardAwareScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
@@ -75,35 +108,51 @@ export const OTPVerificationScreen: React.FC<any> = ({ navigation, route }) => {
         <Animated.View entering={FadeInUp.duration(600).delay(200)} style={styles.textCenter}>
           <Text style={[styles.title, { color: themeColors.textPrimary }]}>Verify Your Account</Text>
           <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
-            We sent a 6-digit code to {email}
+            We sent a 6-digit code to
+          </Text>
+          <Text style={[styles.emailText, { color: colors.primary }]}>
+            {email}
           </Text>
         </Animated.View>
+
+        {devOtp && (
+          <Animated.View entering={FadeInUp.duration(400).delay(250)}>
+            <View style={styles.devBanner}>
+              <Ionicons name="warning-outline" size={16} color="#f59e0b" />
+              <Text style={styles.devBannerText}>
+                Dev Mode — OTP: <Text style={styles.devOtpText}>{devOtp}</Text>
+              </Text>
+            </View>
+          </Animated.View>
+        )}
 
         <Animated.View entering={FadeInUp.duration(600).delay(300)} style={styles.form}>
           <OTPInput length={6} onComplete={setOtp} />
 
-          <AuthButton 
-            title="Verify" 
-            onPress={handleVerify} 
+          <AuthButton
+            title="Verify Email"
+            onPress={handleVerify}
             isLoading={isLoading}
-            disabled={otp.length !== 6}
+            disabled={otp.replace(/\D/g, '').length !== 6}
           />
 
           <View style={styles.resendContainer}>
             {isActive ? (
               <Text style={[styles.timerText, { color: themeColors.textSecondary }]}>
-                Resend in 0:{seconds.toString().padStart(2, '0')}
+                Resend code in 0:{seconds.toString().padStart(2, '0')}
               </Text>
             ) : (
               <TouchableOpacity onPress={handleResend}>
-                <Text style={[styles.resendText, { color: colors.primary }]}>Resend OTP</Text>
+                <Text style={[styles.resendText, { color: colors.primary }]}>
+                  Didn't receive the code? Resend OTP
+                </Text>
               </TouchableOpacity>
             )}
           </View>
-          
-          <TouchableOpacity style={styles.changePhoneContainer} onPress={() => navigation.goBack()}>
-            <Text style={[styles.changePhoneText, { color: themeColors.textSecondary }]}>
-              Change email address
+
+          <TouchableOpacity style={styles.changeEmailContainer} onPress={() => navigation.goBack()}>
+            <Text style={[styles.changeEmailText, { color: themeColors.textSecondary }]}>
+              ← Use a different email address
             </Text>
           </TouchableOpacity>
         </Animated.View>
@@ -131,11 +180,17 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.heading,
-    marginBottom: spacing.base,
+    marginBottom: spacing.sm,
     textAlign: 'center',
   },
   subtitle: {
     ...typography.subheading,
+    textAlign: 'center',
+  },
+  emailText: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 4,
     textAlign: 'center',
   },
   form: {
@@ -151,13 +206,34 @@ const styles = StyleSheet.create({
   resendText: {
     ...typography.link,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
-  changePhoneContainer: {
+  changeEmailContainer: {
     alignItems: 'center',
     marginTop: spacing.lg,
   },
-  changePhoneText: {
+  changeEmailText: {
     ...typography.link,
     textDecorationLine: 'underline',
+  },
+  devBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#fef3c7',
+    borderColor: '#f59e0b',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: spacing.md,
+  },
+  devBannerText: {
+    color: '#92400e',
+    fontSize: 13,
+  },
+  devOtpText: {
+    fontWeight: '900',
+    letterSpacing: 3,
+    color: '#b45309',
   },
 });

@@ -6,6 +6,7 @@ interface AuthContextType {
   user: any;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  googleLogin: (accessToken: string) => Promise<void>;
   register: (userData: any) => Promise<void>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
@@ -42,6 +43,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(data);
   };
 
+  const googleLogin = async (accessToken: string) => {
+    const data = await authService.googleLogin(accessToken);
+    setUser(data);
+  };
+
   const register = async (userData: any) => {
     await authService.register(userData);
     // Note: Register usually returns a message saying check email for OTP in this backend
@@ -58,6 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         isLoading,
         login,
+        googleLogin,
         register,
         logout,
         isAuthenticated: !!user,

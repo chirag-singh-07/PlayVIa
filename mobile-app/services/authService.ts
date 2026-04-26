@@ -10,6 +10,14 @@ export const authService = {
     return response.data;
   },
 
+  googleLogin: async (accessToken: string) => {
+    const response = await api.post('/auth/google', { accessToken });
+    if (response.data.token) {
+      await SecureStore.setItemAsync('userToken', response.data.token);
+    }
+    return response.data;
+  },
+
   register: async (userData: any) => {
     const response = await api.post('/auth/register', userData);
     if (response.data.token) {

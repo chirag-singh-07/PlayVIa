@@ -24,7 +24,19 @@ export const LoginScreen: React.FC<any> = ({ navigation }) => {
   const { theme } = useTheme();
   const themeColors = theme === 'dark' ? colors.dark : colors.light;
   const { validateEmail } = useFormValidation();
-  const { promptAsync } = useGoogleAuth();
+  const { login: authLogin, googleLogin: authGoogleLogin } = useAuth();
+  
+  const handleGoogleSuccess = async (accessToken: string) => {
+    setIsLoading(true);
+    try {
+      await authGoogleLogin(accessToken);
+    } catch (error: any) {
+      setIsLoading(false);
+      showAuthError(error);
+    }
+  };
+
+  const { promptAsync } = useGoogleAuth(handleGoogleSuccess);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,8 +44,6 @@ export const LoginScreen: React.FC<any> = ({ navigation }) => {
 
   const isEmailValid = email.length > 0 ? validateEmail(email) : undefined;
   const isFormValid = isEmailValid && password.length >= 6;
-
-  const { login: authLogin } = useAuth();
 
   const handleLogin = async () => {
     if (!isFormValid) {

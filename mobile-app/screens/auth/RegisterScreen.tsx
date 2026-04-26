@@ -12,6 +12,10 @@ import { AuthButton } from '../../components/auth/AuthButton';
 import { PasswordStrength } from '../../components/auth/PasswordStrength';
 import { useFormValidation } from '../../hooks/useFormValidation';
 import { ScreenWrapper } from '../../components/ScreenWrapper';
+import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton';
+import { SocialDivider } from '../../components/auth/SocialDivider';
+import { useGoogleAuth } from '../../hooks/useGoogleAuth';
+import { useAuth } from '../../context/AuthContext';
 
 import { authService } from '../../services/authService';
 import { showAuthError } from '../../utils/errorHandler';
@@ -21,6 +25,19 @@ export const RegisterScreen: React.FC<any> = ({ navigation }) => {
   const { theme } = useTheme();
   const themeColors = theme === 'dark' ? colors.dark : colors.light;
   const { validateEmail, validatePhone, validateUsername, calculatePasswordScore } = useFormValidation();
+  const { googleLogin: authGoogleLogin } = useAuth();
+
+  const handleGoogleSuccess = async (accessToken: string) => {
+    setIsLoading(true);
+    try {
+      await authGoogleLogin(accessToken);
+    } catch (error: any) {
+      setIsLoading(false);
+      showAuthError(error);
+    }
+  };
+
+  const { promptAsync } = useGoogleAuth(handleGoogleSuccess);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -178,6 +195,9 @@ export const RegisterScreen: React.FC<any> = ({ navigation }) => {
             isLoading={isLoading}
             disabled={!isValid}
           />
+
+          <SocialDivider />
+          <GoogleSignInButton onPress={() => promptAsync()} />
 
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: themeColors.textSecondary }]}>

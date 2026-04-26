@@ -7,22 +7,22 @@ import * as SecureStore from "expo-secure-store";
 
 WebBrowser.maybeCompleteAuthSession();
 
-export const useGoogleAuth = () => {
+export const useGoogleAuth = (onSuccess?: (accessToken: string) => void) => {
   const [request, response, promptAsync] = Google.useAuthRequest({
     // You would place real client IDs here for production
-    clientId: "YOUR_EXPO_CLIENT_ID",
-    iosClientId: "YOUR_IOS_CLIENT_ID",
-    androidClientId: "YOUR_ANDROID_CLIENT_ID",
-    webClientId: "YOUR_WEB_CLIENT_ID",
+    clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || "YOUR_WEB_CLIENT_ID",
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "YOUR_IOS_CLIENT_ID",
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || "YOUR_ANDROID_CLIENT_ID",
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || "YOUR_WEB_CLIENT_ID",
   });
 
   useEffect(() => {
     if (response?.type === "success") {
       const { authentication } = response;
       if (authentication?.accessToken) {
-        // Here you would send the token to your backend
-        // For now, we simulate storing it securely
-        SecureStore.setItemAsync("google_token", authentication.accessToken);
+        if (onSuccess) {
+          onSuccess(authentication.accessToken);
+        }
       }
     }
   }, [response]);

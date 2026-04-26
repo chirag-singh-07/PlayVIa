@@ -9,6 +9,7 @@ const {
   verifyResetOtp,
   resetPassword,
   getUserProfile,
+  googleLogin,
 } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
 const { authRateLimiter } = require('../middleware/rateLimitMiddleware');
@@ -22,6 +23,7 @@ router.post('/verify-reset-otp', authRateLimiter, verifyResetOtp);
 
 // Standard routes
 router.post('/login', loginUser);
+router.post('/google', googleLogin);
 router.post('/reset-password', resetPassword);
 router.get('/profile', protect, getUserProfile);
 

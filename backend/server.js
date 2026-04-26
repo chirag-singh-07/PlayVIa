@@ -1,5 +1,8 @@
-const express = require('express');
 const dotenv = require('dotenv');
+// ⚠️ MUST be called first before any other require() that reads process.env
+dotenv.config();
+
+const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -18,9 +21,6 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const earningsRoutes = require('./routes/earningsRoutes');
 const referralRoutes = require('./routes/referralRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-
-// Load env vars
-dotenv.config();
 
 // Connect to database
 connectDB();

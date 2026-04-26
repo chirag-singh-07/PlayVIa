@@ -1,44 +1,97 @@
 const nodemailer = require('nodemailer');
 
 /**
- * Configure Nodemailer Transporter
+ * Configure Nodemailer Transporter using explicit SMTP (more reliable than `service: 'gmail'`)
+ * For Gmail: make sure you use an App Password (not your regular password)
+ * Generate one at: https://myaccount.google.com/apppasswords
  */
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true, // use SSL
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS, // App Password
+    pass: process.env.EMAIL_PASS,
+  },
+  tls: {
+    rejectUnauthorized: false, // allow self-signed certs on some hosts
   },
 });
 
 /**
- * Send Email Generic Function
+ * Verify SMTP connection on server startup.
+ * This will log an error immediately if credentials are wrong
+ * instead of silently failing later.
  */
-const sendEmail = async ({ to, subject, title, body, otp, expiry }) => {
+const verifyEmailConnection = async () => {
+  try {
+    await transporter.verify();
+    console.log('[Email] ✅ SMTP connection verified. Ready to send emails.');
+  } catch (error) {
+    console.error('[Email] ❌ SMTP connection FAILED. Check EMAIL_USER and EMAIL_PASS env variables.');
+    console.error('[Email] Error details:', error.message);
+  }
+};
+
+// Run verification on module load
+verifyEmailConnection();
+
+/**
+ * Send Email Generic Function with retry support
+ */
+const sendEmail = async ({ to, subject, title, body, otp, expiry }, retryCount = 0) => {
   const mailOptions = {
     from: `"PlayVia" <${process.env.EMAIL_USER}>`,
     to,
     subject,
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
-        <h2 style="color: #333; text-align: center;">${title}</h2>
-        <p style="font-size: 16px; color: #555;">${body}</p>
-        <div style="text-align: center; margin: 30px 0;">
-          <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #ff0000; background: #f4f4f4; padding: 10px 20px; border-radius: 5px;">${otp}</span>
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: auto; background: #0f0f0f; border-radius: 12px; overflow: hidden;">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #FF0000, #FF4500); padding: 30px; text-align: center;">
+          <h1 style="color: #fff; margin: 0; font-size: 28px; letter-spacing: 1px;">▶ PlayVia</h1>
         </div>
-        <p style="font-size: 14px; color: #888; text-align: center;">This OTP is valid for ${expiry || 10} minutes.</p>
-        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-        <p style="font-size: 12px; color: #aaa; text-align: center;">If you did not request this, please ignore this email.</p>
+        <!-- Body -->
+        <div style="padding: 40px 30px; background: #1a1a1a;">
+          <h2 style="color: #ffffff; text-align: center; margin-top: 0;">${title}</h2>
+          <p style="font-size: 15px; color: #aaaaaa; text-align: center;">${body}</p>
+          
+          <!-- OTP Box -->
+          <div style="text-align: center; margin: 30px 0;">
+            <div style="display: inline-block; background: #0f0f0f; border: 2px solid #FF0000; border-radius: 10px; padding: 16px 32px;">
+              <span style="font-size: 36px; font-weight: bold; letter-spacing: 12px; color: #FF0000;">${otp}</span>
+            </div>
+          </div>
+          
+          <p style="font-size: 13px; color: #666; text-align: center;">
+            This OTP is valid for <strong style="color: #aaa;">${expiry || 10} minutes</strong>. Do not share it with anyone.
+          </p>
+        </div>
+        <!-- Footer -->
+        <div style="background: #0a0a0a; padding: 20px; text-align: center;">
+          <p style="font-size: 12px; color: #444; margin: 0;">
+            If you did not request this, you can safely ignore this email.
+          </p>
+          <p style="font-size: 12px; color: #333; margin: 8px 0 0 0;">© 2025 PlayVia. All rights reserved.</p>
+        </div>
       </div>
     `,
   };
 
   try {
-    await transporter.sendMail(mailOptions);
-    console.log(`Email sent to ${to}`);
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[Email] ✅ Email sent to ${to} — Message ID: ${info.messageId}`);
+    return info;
   } catch (error) {
-    console.error('Error sending email:', error);
-    throw new Error('Email could not be sent');
+    console.error(`[Email] ❌ Failed to send email to ${to}. Attempt ${retryCount + 1}/3.`);
+    console.error('[Email] Error:', error.message);
+    
+    if (retryCount < 2) {
+      // Wait 2 seconds before retrying
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return sendEmail({ to, subject, title, body, otp, expiry }, retryCount + 1);
+    }
+    
+    throw new Error(`Email could not be sent after 3 attempts: ${error.message}`);
   }
 };
 
@@ -48,11 +101,11 @@ const sendEmail = async ({ to, subject, title, body, otp, expiry }) => {
 const sendVerificationEmail = async (email, otp) => {
   await sendEmail({
     to: email,
-    subject: 'Verify your account',
+    subject: '🔐 Verify your PlayVia account',
     title: 'Welcome to PlayVia!',
-    body: 'Thank you for registering. Please use the following One-Time Password (OTP) to verify your account:',
+    body: 'Thank you for registering. Use the OTP below to verify your email address:',
     otp,
-    expiry: process.env.OTP_EXPIRY_TIME,
+    expiry: process.env.OTP_EXPIRY_TIME || 10,
   });
 };
 
@@ -62,11 +115,11 @@ const sendVerificationEmail = async (email, otp) => {
 const sendPasswordResetEmail = async (email, otp) => {
   await sendEmail({
     to: email,
-    subject: 'Reset your password',
+    subject: '🔑 Reset your PlayVia password',
     title: 'Password Reset Request',
-    body: 'We received a request to reset your password. Please use the following One-Time Password (OTP) to proceed:',
+    body: 'We received a request to reset your password. Use the OTP below to proceed:',
     otp,
-    expiry: process.env.OTP_EXPIRY_TIME,
+    expiry: process.env.OTP_EXPIRY_TIME || 10,
   });
 };
 

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface UserAvatarProps {
@@ -15,6 +16,8 @@ const GRADIENTS = [
 ];
 
 export function UserAvatar({ src, name, className }: UserAvatarProps) {
+  const [error, setError] = useState(false);
+
   const initials = name
     ? name
         .split(" ")
@@ -29,16 +32,15 @@ export function UserAvatar({ src, name, className }: UserAvatarProps) {
     ? name.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) % GRADIENTS.length
     : 0;
 
-  if (src && src !== "" && !src.includes("anonymous-avatar")) {
+  const showFallback = !src || src === "" || src.includes("anonymous-avatar") || error;
+
+  if (!showFallback) {
     return (
       <img
         src={src}
         alt={name}
         className={cn("w-9 h-9 rounded-full object-cover border border-border shadow-sm", className)}
-        onError={(e) => {
-          (e.target as HTMLImageElement).style.display = "none";
-          (e.target as HTMLImageElement).parentElement!.querySelector(".initials-fallback")!.classList.remove("hidden");
-        }}
+        onError={() => setError(true)}
       />
     );
   }
@@ -46,7 +48,7 @@ export function UserAvatar({ src, name, className }: UserAvatarProps) {
   return (
     <div
       className={cn(
-        "w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm border border-white/10 initials-fallback",
+        "w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm border border-white/10",
         GRADIENTS[gradientIndex],
         className
       )}

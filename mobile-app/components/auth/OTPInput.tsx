@@ -18,18 +18,29 @@ export const OTPInput: React.FC<OTPInputProps> = ({ length = 6, onComplete }) =>
   const inputRefs = useRef<TextInput[]>([]);
 
   const handleChange = (text: string, index: number) => {
+    // Handle paste: if user pastes 6 digits into first box
+    if (text.length > 1) {
+      const digits = text.replace(/\D/g, '').slice(0, length).split('');
+      const newOtp = [...otp];
+      digits.forEach((d, i) => { newOtp[i] = d; });
+      setOtp(newOtp);
+      onComplete(newOtp.join(''));
+      // Focus last filled or last input
+      const focusIdx = Math.min(digits.length, length - 1);
+      inputRefs.current[focusIdx]?.focus();
+      return;
+    }
+
     const newOtp = [...otp];
     newOtp[index] = text;
     setOtp(newOtp);
 
-    // Auto-advance
-    if (text.length !== 0 && index < length - 1) {
-      inputRefs.current[index + 1].focus();
-    }
+    // Always update parent with current value
+    onComplete(newOtp.join(''));
 
-    // Auto-submit
-    if (newOtp.every(char => char !== '')) {
-      onComplete(newOtp.join(''));
+    // Auto-advance to next input
+    if (text.length !== 0 && index < length - 1) {
+      inputRefs.current[index + 1]?.focus();
     }
   };
 

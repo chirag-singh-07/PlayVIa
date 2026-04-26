@@ -26,13 +26,17 @@ export const OTPVerificationScreen: React.FC<any> = ({ navigation, route }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleVerify = async () => {
-    if (otp.length < 6) return;
+    const cleanOtp = otp.replace(/\D/g, '').trim();
+    if (cleanOtp.length < 6) {
+      Alert.alert('Incomplete OTP', 'Please enter all 6 digits.');
+      return;
+    }
     setIsLoading(true);
     try {
-      await authService.verifyOtp(email, otp);
+      await authService.verifyOtp(email, cleanOtp);
       setIsLoading(false);
-      Alert.alert('Success', 'Email verified successfully. You can now login.', [
-        { text: 'OK', onPress: () => navigation.navigate('Login') }
+      Alert.alert('Success! 🎉', 'Email verified successfully. You can now login.', [
+        { text: 'Go to Login', onPress: () => navigation.navigate('Login') }
       ]);
     } catch (error: any) {
       setIsLoading(false);

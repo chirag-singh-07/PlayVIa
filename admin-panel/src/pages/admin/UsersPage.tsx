@@ -21,6 +21,17 @@ import { generateUsers, fmtDate, USER_STATUSES, type AdminUserRecord } from "@/l
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { adminService } from "@/lib/adminService";
+import { UserAvatar } from "@/components/admin/UserAvatar";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 
 
@@ -33,6 +44,7 @@ export default function UsersPage() {
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [rowSelection, setRowSelection] = useState({});
   const [active, setActive] = useState<any | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -62,16 +74,18 @@ export default function UsersPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this user? This action cannot be undone.")) return;
+  const handleDelete = async () => {
+    if (!deleteId) return;
     
     try {
-      await adminService.deleteUser(id);
+      await adminService.deleteUser(deleteId);
       toast.success("User deleted successfully");
       fetchUsers();
-      if (active && active._id === id) setActive(null);
+      if (active && active._id === deleteId) setActive(null);
     } catch (error) {
       toast.error("Failed to delete user");
+    } finally {
+      setDeleteId(null);
     }
   };
 
@@ -99,7 +113,7 @@ export default function UsersPage() {
       accessorKey: "username", header: "User",
       cell: ({ row }) => (
         <div className="flex items-center gap-3 min-w-0">
-          <img src={row.original.avatar} className="w-9 h-9 rounded-full shrink-0" alt="" />
+          <UserAvatar src={row.original.avatar} name={row.original.username} className="w-9 h-9" />
           <div className="min-w-0">
             <div className="font-medium flex items-center gap-1.5">
               <span className="truncate">{row.original.username}</span>
@@ -152,7 +166,7 @@ export default function UsersPage() {
               className="text-destructive focus:text-destructive"
               onClick={(e) => {
                 e.stopPropagation();
-                handleDelete(row.original._id);
+                setDeleteId(row.original._id);
               }}
             >
               <Trash2 className="w-4 h-4 mr-2" /> Delete
@@ -309,7 +323,7 @@ export default function UsersPage() {
               <SheetHeader><SheetTitle className="text-left">User Profile</SheetTitle></SheetHeader>
               <div className="mt-6 space-y-5">
                 <div className="flex items-center gap-4">
-                  <img src={active.avatar} className="w-16 h-16 rounded-full shrink-0" alt="" />
+                  <UserAvatar src={active.avatar} name={active.username} className="w-16 h-16" />
                   <div className="min-w-0">
                     <div className="text-xl font-bold flex items-center gap-2 truncate">
                       {active.username}
@@ -351,7 +365,7 @@ export default function UsersPage() {
                     variant="outline" 
                     size="sm" 
                     className="text-destructive hover:text-destructive"
-                    onClick={() => handleDelete(active._id)}
+                    onClick={() => setDeleteId(active._id)}
                   >
                     <Trash2 className="w-4 h-4 mr-2" /> Delete
                   </Button>
@@ -361,6 +375,24 @@ export default function UsersPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the user account
+              and remove their data from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete User
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

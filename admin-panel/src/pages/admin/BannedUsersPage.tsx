@@ -8,11 +8,22 @@ import { Search, Undo2, Clock, UserX, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { adminService } from "@/lib/adminService";
 import { UserAvatar } from "@/components/admin/UserAvatar";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function BannedUsersPage() {
   const [list, setList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -41,14 +52,16 @@ export default function BannedUsersPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this user? This action cannot be undone.")) return;
+  const handleDelete = async () => {
+    if (!deleteId) return;
     try {
-      await adminService.deleteUser(id);
+      await adminService.deleteUser(deleteId);
       toast.success("User deleted successfully");
       fetchUsers();
     } catch (error) {
       toast.error("Failed to delete user");
+    } finally {
+      setDeleteId(null);
     }
   };
 
@@ -102,7 +115,7 @@ export default function BannedUsersPage() {
                 <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{fmtDate(b.updatedAt)}</TableCell>
                 <TableCell className="text-right whitespace-nowrap">
                   <Button size="sm" variant="ghost" onClick={() => handleUnban(b._id)}><Undo2 className="w-4 h-4 mr-1" />Unban</Button>
-                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDelete(b._id)}><Trash2 className="w-4 h-4" /></Button>
+                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setDeleteId(b._id)}><Trash2 className="w-4 h-4" /></Button>
                 </TableCell>
               </TableRow>
             ))}
@@ -114,6 +127,24 @@ export default function BannedUsersPage() {
           </TableBody>
         </Table>
       </Card>
+
+      <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This account is already banned, but deleting it
+              will permanently remove it from the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete Permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -8,13 +8,26 @@ const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/emai
 // @route   POST /api/auth/register
 // @access  Public
 const registerUser = asyncHandler(async (req, res) => {
-  const { username, email, password } = req.body;
+  const { username, email, password, name, phone, referredBy } = req.body;
 
-  const userExists = await User.findOne({ email });
-
-  if (userExists) {
+  // Basic validation
+  if (!username || !email || !password) {
     res.status(400);
-    throw new Error('User already exists');
+    throw new Error('Please provide username, email and password');
+  }
+
+  // Check for duplicate email
+  const emailExists = await User.findOne({ email: email.toLowerCase() });
+  if (emailExists) {
+    res.status(400);
+    throw new Error('An account with this email already exists');
+  }
+
+  // Check for duplicate username
+  const usernameExists = await User.findOne({ username: username.toLowerCase() });
+  if (usernameExists) {
+    res.status(400);
+    throw new Error('This username is already taken. Please choose another.');
   }
 
   // Generate unique referral code
@@ -26,40 +39,63 @@ const registerUser = asyncHandler(async (req, res) => {
   const hashedOtp = await hashOtp(rawOtp);
   const expiryTime = new Date(Date.now() + (process.env.OTP_EXPIRY_TIME || 10) * 60 * 1000);
 
-  const user = await User.create({
-    username,
-    email,
-    password,
-    referralCode,
-    otp: hashedOtp,
-    otpExpiry: expiryTime,
-    isVerified: false,
-  });
+  let user;
+  try {
+    user = await User.create({
+      username: username.toLowerCase(),
+      email: email.toLowerCase(),
+      password,
+      referralCode,
+      otp: hashedOtp,
+      otpExpiry: expiryTime,
+      isVerified: false,
+    });
+  } catch (dbError) {
+    // Handle MongoDB duplicate key errors that slipped through
+    if (dbError.code === 11000) {
+      const field = Object.keys(dbError.keyPattern || {})[0] || 'field';
+      res.status(400);
+      throw new Error(`This ${field} is already registered. Please use a different one.`);
+    }
+    throw dbError;
+  }
 
-  // Handle referral logic
-  const { referredBy } = req.body;
+  // Handle referral logic (non-fatal)
   if (referredBy) {
-    const referrerUser = await User.findOne({ referralCode: referredBy });
-    if (referrerUser) {
-      const Referral = require('../models/Referral');
-      await Referral.create({
-        referrer: referrerUser._id,
-        referredUser: user._id,
-        isActive: false, // will activate on first login/verification
-      });
+    try {
+      const referrerUser = await User.findOne({ referralCode: referredBy });
+      if (referrerUser) {
+        const Referral = require('../models/Referral');
+        await Referral.create({
+          referrer: referrerUser._id,
+          referredUser: user._id,
+          isActive: false,
+        });
+      }
+    } catch (refError) {
+      console.error('[AUTH] Referral error (non-fatal):', refError.message);
     }
   }
 
-  if (user) {
+  // Send OTP email (non-fatal — user is created regardless)
+  let emailSent = false;
+  try {
     await sendVerificationEmail(user.email, rawOtp);
-    res.status(201).json({
-      message: 'Registration successful. Please check your email for the verification OTP.',
-      email: user.email,
-    });
-  } else {
-    res.status(400);
-    throw new Error('Invalid user data');
+    emailSent = true;
+    console.log(`[AUTH] ✅ OTP email sent to ${user.email}`);
+  } catch (emailError) {
+    console.error('[AUTH] ⚠️ Email sending failed:', emailError.message);
+    console.log(`[AUTH] 🔑 OTP for ${user.email}: ${rawOtp}`);
   }
+
+  res.status(201).json({
+    message: emailSent
+      ? 'Registration successful. Please check your email for the verification OTP.'
+      : 'Registration successful. Email delivery failed — please use the OTP from your admin/server logs or request a resend.',
+    email: user.email,
+    // Return OTP directly in non-production when email fails (for testing)
+    ...(process.env.NODE_ENV !== 'production' && !emailSent && { devOtp: rawOtp }),
+  });
 });
 
 // @desc    Verify Registration OTP

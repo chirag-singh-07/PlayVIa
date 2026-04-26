@@ -63,6 +63,14 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    name: {
+      type: String,
+      trim: true,
+    },
+    phone: {
+      type: String,
+      trim: true,
+    },
   },
   {
     timestamps: true,

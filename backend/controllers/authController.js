@@ -45,6 +45,8 @@ const registerUser = asyncHandler(async (req, res) => {
       username: username.toLowerCase(),
       email: email.toLowerCase(),
       password,
+      name,
+      phone,
       referralCode,
       otp: hashedOtp,
       otpExpiry: expiryTime,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,30 +8,64 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/admin/StatusBadge";
-import { generateNotifications, fmtDateTime, type NotificationRecord } from "@/lib/adminMock";
-import { Bell, Send, Smartphone } from "lucide-react";
+import { fmtDateTime } from "@/lib/adminMock";
+import { Bell, Send, Smartphone, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { adminService } from "@/lib/adminService";
 
 export default function NotificationsPage() {
-  const [list, setList] = useState<NotificationRecord[]>(() => generateNotifications());
+  const [list, setList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
-  const [target, setTarget] = useState<NotificationRecord["target"]>("All Users");
+  const [target, setTarget] = useState("All Users");
   const [when, setWhen] = useState<"now" | "later">("now");
   const [scheduleAt, setScheduleAt] = useState("");
 
-  function send() {
+  const fetchAnnouncements = async () => {
+    setLoading(true);
+    try {
+      const data = await adminService.getAnnouncements();
+      setList(data);
+    } catch (error) {
+      console.error("Error fetching announcements:", error);
+      toast.error("Failed to load announcements");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAnnouncements();
+  }, []);
+
+  async function send() {
     if (!title.trim() || !message.trim()) { toast.error("Title and message are required"); return; }
     if (when === "later" && !scheduleAt) { toast.error("Pick a schedule time"); return; }
-    setList((p) => [{
-      id: `ntf_${Date.now()}`, title, message, target,
-      scheduledAt: when === "later" ? new Date(scheduleAt).toISOString() : new Date().toISOString(),
-      status: when === "later" ? "Scheduled" : "Sent",
-      recipients: target === "All Users" ? 524891 : target === "Creators" ? 12_400 : target === "Premium" ? 38_200 : 1,
-      openRate: 0,
-    }, ...p]);
-    toast.success(when === "later" ? "Notification scheduled" : "Notification sent");
-    setTitle(""); setMessage(""); setScheduleAt("");
+    
+    try {
+      await adminService.createAnnouncement({
+        title,
+        message,
+        target,
+        when,
+        scheduleAt,
+      });
+      
+      toast.success(when === "later" ? "Notification scheduled" : "Notification sent");
+      setTitle(""); setMessage(""); setScheduleAt("");
+      fetchAnnouncements();
+    } catch (error) {
+      toast.error("Failed to send notification");
+    }
+  }
+
+  if (loading && list.length === 0) {
+    return (
+      <div className="flex h-[400px] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (
@@ -104,12 +138,12 @@ export default function NotificationsPage() {
           </TableRow></TableHeader>
           <TableBody>
             {list.map((n) => (
-              <TableRow key={n.id}>
+              <TableRow key={n._id}>
                 <TableCell><div className="font-medium">{n.title}</div><div className="text-xs text-muted-foreground line-clamp-1">{n.message}</div></TableCell>
                 <TableCell className="hidden md:table-cell text-sm">{n.target}</TableCell>
-                <TableCell className="text-right">{n.recipients.toLocaleString("en-IN")}</TableCell>
-                <TableCell className="text-right hidden md:table-cell">{n.status === "Sent" ? `${n.openRate}%` : "—"}</TableCell>
-                <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">{fmtDateTime(n.scheduledAt)}</TableCell>
+                <TableCell className="text-right">{(n.recipientsCount || 0).toLocaleString("en-IN")}</TableCell>
+                <TableCell className="text-right hidden md:table-cell">{n.status === "Sent" ? `${n.openRate || 0}%` : "—"}</TableCell>
+                <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">{fmtDateTime(n.scheduledAt || n.createdAt)}</TableCell>
                 <TableCell><StatusBadge status={n.status} /></TableCell>
               </TableRow>
             ))}

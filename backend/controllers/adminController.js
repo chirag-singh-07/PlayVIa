@@ -3,6 +3,8 @@ const User = require('../models/User');
 const Video = require('../models/Video');
 const Report = require('../models/Report');
 const Category = require('../models/Category');
+const Announcement = require('../models/Announcement');
+const Setting = require('../models/Setting');
 
 // @desc    Get admin dashboard stats
 // @route   GET /api/admin/stats
@@ -182,6 +184,73 @@ const deleteCategory = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Get all announcements
+// @route   GET /api/admin/announcements
+// @access  Private/Admin
+const getAnnouncements = asyncHandler(async (req, res) => {
+  const announcements = await Announcement.find().sort({ createdAt: -1 });
+  res.json(announcements);
+});
+
+// @desc    Create announcement
+// @route   POST /api/admin/announcements
+// @access  Private/Admin
+const createAnnouncement = asyncHandler(async (req, res) => {
+  const { title, message, target, when, scheduleAt } = req.body;
+  
+  // Calculate mock recipients count based on target
+  let recipientsCount = 0;
+  if (target === "All Users") recipientsCount = 524891;
+  else if (target === "Creators") recipientsCount = 12400;
+  else if (target === "Premium") recipientsCount = 38200;
+  else recipientsCount = 1;
+
+  const status = when === "later" ? "Scheduled" : "Sent";
+  const scheduledTime = when === "later" ? new Date(scheduleAt) : new Date();
+
+  const announcement = await Announcement.create({
+    title,
+    message,
+    target,
+    status,
+    scheduledAt: scheduledTime,
+    recipientsCount,
+    openRate: 0,
+  });
+
+  res.status(201).json(announcement);
+});
+
+// @desc    Get settings
+// @route   GET /api/admin/settings
+// @access  Private/Admin
+const getSettings = asyncHandler(async (req, res) => {
+  let settings = await Setting.findOne();
+  if (!settings) {
+    settings = await Setting.create({});
+  }
+  res.json(settings);
+});
+
+// @desc    Update settings
+// @route   PUT /api/admin/settings
+// @access  Private/Admin
+const updateSettings = asyncHandler(async (req, res) => {
+  let settings = await Setting.findOne();
+  if (!settings) {
+    settings = await Setting.create({});
+  }
+  
+  settings.general = req.body.general || settings.general;
+  settings.upload = req.body.upload || settings.upload;
+  settings.monetization = req.body.monetization || settings.monetization;
+  settings.email = req.body.email || settings.email;
+  settings.security = req.body.security || settings.security;
+
+  const updatedSettings = await settings.save();
+  res.json(updatedSettings);
+});
+
 module.exports = {
   getAdminStats,
   getRecentVideos,
@@ -197,4 +266,8 @@ module.exports = {
   addCategory,
   updateCategory,
   deleteCategory,
+  getAnnouncements,
+  createAnnouncement,
+  getSettings,
+  updateSettings,
 };

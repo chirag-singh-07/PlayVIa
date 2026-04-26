@@ -11,6 +11,14 @@ const {
   deleteVideo,
   getAllReports,
   resolveReport,
+  getCategories,
+  addCategory,
+  updateCategory,
+  deleteCategory,
+  getAnnouncements,
+  createAnnouncement,
+  getSettings,
+  updateSettings,
 } = require('../controllers/adminController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
@@ -24,5 +32,16 @@ router.get('/videos', protect, admin, getAllVideos);
 router.delete('/videos/:id', protect, admin, deleteVideo);
 router.get('/reports/all', protect, admin, getAllReports);
 router.put('/reports/:id/resolve', protect, admin, resolveReport);
+
+router.get('/categories', protect, admin, getCategories);
+router.post('/categories', protect, admin, addCategory);
+router.put('/categories/:id', protect, admin, updateCategory);
+router.delete('/categories/:id', protect, admin, deleteCategory);
+
+router.get('/announcements', protect, admin, getAnnouncements);
+router.post('/announcements', protect, admin, createAnnouncement);
+
+router.get('/settings', protect, admin, getSettings);
+router.put('/settings', protect, admin, updateSettings);
 
 module.exports = router;

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,57 +7,98 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { generateCategories, type Category } from "@/lib/adminMock";
-import { Plus, Pencil, Trash2, GripVertical, FolderTree } from "lucide-react";
+import { Plus, Pencil, Trash2, GripVertical, FolderTree, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { adminService } from "@/lib/adminService";
 
 export default function CategoriesPage() {
-  const [list, setList] = useState<Category[]>(() => generateCategories());
-  const [editing, setEditing] = useState<Category | null>(null);
+  const [list, setList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<any | null>(null);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<Omit<Category, "id" | "videos" | "order">>({
+  const [form, setForm] = useState({
     name: "", slug: "", icon: "📁", description: "", active: true,
   });
 
-  const total = useMemo(() => list.reduce((s, c) => s + c.videos, 0), [list]);
+  const total = useMemo(() => list.reduce((s, c) => s + (c.videos || 0), 0), [list]);
+
+  const fetchCategories = async () => {
+    setLoading(true);
+    try {
+      const data = await adminService.getCategories();
+      setList(data);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      toast.error("Failed to load categories");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
 
   function openNew() {
     setEditing(null);
     setForm({ name: "", slug: "", icon: "📁", description: "", active: true });
     setOpen(true);
   }
-  function openEdit(c: Category) {
+  
+  function openEdit(c: any) {
     setEditing(c);
-    setForm({ name: c.name, slug: c.slug, icon: c.icon, description: c.description, active: c.active });
+    setForm({ name: c.name, slug: c.slug, icon: c.icon || "📁", description: c.description || "", active: c.active });
     setOpen(true);
   }
-  function save() {
+  
+  async function save() {
     if (!form.name.trim()) { toast.error("Name is required"); return; }
-    if (editing) {
-      setList((p) => p.map((x) => x.id === editing.id ? { ...x, ...form } : x));
-      toast.success("Category updated");
-    } else {
-      setList((p) => [...p, { ...form, id: `cat_${Date.now()}`, videos: 0, order: p.length + 1 }]);
-      toast.success("Category created");
+    try {
+      if (editing) {
+        await adminService.updateCategory(editing._id, form);
+        toast.success("Category updated");
+      } else {
+        await adminService.addCategory(form);
+        toast.success("Category created");
+      }
+      setOpen(false);
+      fetchCategories();
+    } catch (error) {
+      toast.error("Failed to save category");
     }
-    setOpen(false);
   }
-  function remove(id: string) {
-    setList((p) => p.filter((x) => x.id !== id));
-    toast.success("Category deleted");
+  
+  async function remove(id: string) {
+    if (!confirm("Are you sure you want to delete this category?")) return;
+    try {
+      await adminService.deleteCategory(id);
+      toast.success("Category deleted");
+      fetchCategories();
+    } catch (error) {
+      toast.error("Failed to delete category");
+    }
   }
-  function toggle(id: string) {
-    setList((p) => p.map((x) => x.id === id ? { ...x, active: !x.active } : x));
+  
+  async function toggle(id: string, currentActive: boolean) {
+    try {
+      await adminService.updateCategory(id, { active: !currentActive });
+      setList((p) => p.map((x) => x._id === id ? { ...x, active: !currentActive } : x));
+    } catch (error) {
+      toast.error("Failed to update category status");
+    }
   }
+  
   function move(id: string, dir: -1 | 1) {
-    setList((p) => {
-      const i = p.findIndex((x) => x.id === id);
-      const j = i + dir;
-      if (i < 0 || j < 0 || j >= p.length) return p;
-      const copy = [...p];
-      [copy[i], copy[j]] = [copy[j], copy[i]];
-      return copy.map((x, idx) => ({ ...x, order: idx + 1 }));
-    });
+    // We would need an API to update ordering
+    toast.info("Ordering not fully implemented in backend yet");
+  }
+
+  if (loading && list.length === 0) {
+    return (
+      <div className="flex h-[400px] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (
@@ -107,21 +148,21 @@ export default function CategoriesPage() {
           </TableHeader>
           <TableBody>
             {list.map((c) => (
-              <TableRow key={c.id}>
+              <TableRow key={c._id}>
                 <TableCell>
                   <div className="flex flex-col items-center">
-                    <button onClick={() => move(c.id, -1)} className="text-muted-foreground hover:text-foreground"><GripVertical className="w-4 h-4" /></button>
+                    <button onClick={() => move(c._id, -1)} className="text-muted-foreground hover:text-foreground"><GripVertical className="w-4 h-4" /></button>
                   </div>
                 </TableCell>
                 <TableCell className="text-2xl">{c.icon}</TableCell>
                 <TableCell className="font-medium">{c.name}</TableCell>
                 <TableCell className="text-muted-foreground font-mono text-xs">{c.slug}</TableCell>
                 <TableCell className="hidden md:table-cell text-sm text-muted-foreground max-w-xs truncate">{c.description}</TableCell>
-                <TableCell className="text-right font-semibold">{c.videos.toLocaleString("en-IN")}</TableCell>
-                <TableCell><Switch checked={c.active} onCheckedChange={() => toggle(c.id)} /></TableCell>
+                <TableCell className="text-right font-semibold">{(c.videos || 0).toLocaleString("en-IN")}</TableCell>
+                <TableCell><Switch checked={c.active} onCheckedChange={() => toggle(c._id, c.active)} /></TableCell>
                 <TableCell className="text-right">
                   <Button size="sm" variant="ghost" onClick={() => openEdit(c)}><Pencil className="w-4 h-4" /></Button>
-                  <Button size="sm" variant="ghost" onClick={() => remove(c.id)} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                  <Button size="sm" variant="ghost" onClick={() => remove(c._id)} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
                 </TableCell>
               </TableRow>
             ))}

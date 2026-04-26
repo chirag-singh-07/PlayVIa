@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,15 +8,62 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, Send } from "lucide-react";
+import { Save, Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { adminService } from "@/lib/adminService";
 
 export default function SettingsPage() {
+  const [loading, setLoading] = useState(true);
   const [general, setGeneral] = useState({ name: "PlayVia", tagline: "India's #1 Video Streaming App", email: "support@playvia.in", phone: "+91 98765 43210", maintenance: false });
   const [upload, setUpload] = useState({ maxSize: 2048, formats: "mp4, mov, avi, mkv", maxDuration: 180, autoTranscode: true });
   const [mon, setMon] = useState({ enabled: true, share: 55, minWithdraw: 500, upi: true, bank: true, paypal: false });
   const [email, setEmail] = useState({ host: "smtp.sendgrid.net", port: 587, user: "apikey", pass: "" });
   const [security, setSecurity] = useState({ verifyEmail: true, force2fa: true, sessionTimeout: 60, ipWhitelist: "" });
+
+  const fetchSettings = async () => {
+    try {
+      const data = await adminService.getSettings();
+      if (data) {
+        if (data.general) setGeneral(data.general);
+        if (data.upload) setUpload(data.upload);
+        if (data.monetization) setMon(data.monetization);
+        if (data.email) setEmail(data.email);
+        if (data.security) setSecurity(data.security);
+      }
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+      toast.error("Failed to load settings");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const saveSettings = async () => {
+    try {
+      await adminService.updateSettings({
+        general,
+        upload,
+        monetization: mon,
+        email,
+        security,
+      });
+      toast.success("Settings saved");
+    } catch (error) {
+      toast.error("Failed to save settings");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-[400px] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -47,7 +94,7 @@ export default function SettingsPage() {
               <div><Label className="cursor-pointer">Maintenance mode</Label><p className="text-xs text-muted-foreground">Block access to the app while you make changes</p></div>
               <Switch checked={general.maintenance} onCheckedChange={(v) => setGeneral({ ...general, maintenance: v })} />
             </div>
-            <div className="pt-2"><Button onClick={() => toast.success("Settings saved")}><Save className="w-4 h-4 mr-1" />Save Changes</Button></div>
+            <div className="pt-2"><Button onClick={saveSettings}><Save className="w-4 h-4 mr-1" />Save Changes</Button></div>
           </Card>
         </TabsContent>
 
@@ -60,7 +107,7 @@ export default function SettingsPage() {
               <div><Label className="cursor-pointer">Auto-transcoding</Label><p className="text-xs text-muted-foreground">Generate 144p–4K renditions automatically</p></div>
               <Switch checked={upload.autoTranscode} onCheckedChange={(v) => setUpload({ ...upload, autoTranscode: v })} />
             </div>
-            <Button onClick={() => toast.success("Upload settings saved")}><Save className="w-4 h-4 mr-1" />Save</Button>
+            <Button onClick={saveSettings}><Save className="w-4 h-4 mr-1" />Save</Button>
           </Card>
         </TabsContent>
 
@@ -81,7 +128,7 @@ export default function SettingsPage() {
               <div className="flex items-center justify-between rounded-md border p-3"><span className="text-sm">Bank Transfer</span><Switch checked={mon.bank} onCheckedChange={(v) => setMon({ ...mon, bank: v })} /></div>
               <div className="flex items-center justify-between rounded-md border p-3"><span className="text-sm">PayPal</span><Switch checked={mon.paypal} onCheckedChange={(v) => setMon({ ...mon, paypal: v })} /></div>
             </div>
-            <Button onClick={() => toast.success("Monetization settings saved")}><Save className="w-4 h-4 mr-1" />Save</Button>
+            <Button onClick={saveSettings}><Save className="w-4 h-4 mr-1" />Save</Button>
           </Card>
         </TabsContent>
 
@@ -93,7 +140,7 @@ export default function SettingsPage() {
             </div>
             <div><Label>SMTP user</Label><Input value={email.user} onChange={(e) => setEmail({ ...email, user: e.target.value })} /></div>
             <div><Label>SMTP password</Label><Input type="password" value={email.pass} onChange={(e) => setEmail({ ...email, pass: e.target.value })} placeholder="••••••••" /></div>
-            <div className="flex gap-2"><Button onClick={() => toast.success("Email settings saved")}><Save className="w-4 h-4 mr-1" />Save</Button><Button variant="outline" onClick={() => toast.success("Test email sent")}><Send className="w-4 h-4 mr-1" />Send test email</Button></div>
+            <div className="flex gap-2"><Button onClick={saveSettings}><Save className="w-4 h-4 mr-1" />Save</Button><Button variant="outline" onClick={() => toast.success("Test email sent")}><Send className="w-4 h-4 mr-1" />Send test email</Button></div>
           </Card>
         </TabsContent>
 
@@ -119,7 +166,7 @@ export default function SettingsPage() {
               </Select>
             </div>
             <div><Label>IP whitelist for admin</Label><Textarea rows={3} value={security.ipWhitelist} onChange={(e) => setSecurity({ ...security, ipWhitelist: e.target.value })} placeholder="One IP per line. Leave empty to allow all." /></div>
-            <Button onClick={() => toast.success("Security settings saved")}><Save className="w-4 h-4 mr-1" />Save</Button>
+            <Button onClick={saveSettings}><Save className="w-4 h-4 mr-1" />Save</Button>
           </Card>
         </TabsContent>
       </Tabs>

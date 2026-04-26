@@ -49,5 +49,45 @@ export const adminService = {
   resolveReport: async (id: string, status: string) => {
     const response = await api.put(`/admin/reports/${id}/resolve`, { status });
     return response.data;
+  },
+
+  getCategories: async () => {
+    const response = await api.get('/admin/categories');
+    return response.data;
+  },
+
+  addCategory: async (data: any) => {
+    const response = await api.post('/admin/categories', data);
+    return response.data;
+  },
+
+  updateCategory: async (id: string, data: any) => {
+    const response = await api.put(`/admin/categories/${id}`, data);
+    return response.data;
+  },
+
+  deleteCategory: async (id: string) => {
+    const response = await api.delete(`/admin/categories/${id}`);
+    return response.data;
+  },
+
+  getAnnouncements: async () => {
+    const response = await api.get('/admin/announcements');
+    return response.data;
+  },
+
+  createAnnouncement: async (data: any) => {
+    const response = await api.post('/admin/announcements', data);
+    return response.data;
+  },
+
+  getSettings: async () => {
+    const response = await api.get('/admin/settings');
+    return response.data;
+  },
+
+  updateSettings: async (data: any) => {
+    const response = await api.put('/admin/settings', data);
+    return response.data;
   }
 };

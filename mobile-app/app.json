@@ -5,8 +5,8 @@
     "scheme": "playvia",
     "version": "1.0.0",
     "cli": {
-  "appVersionSource": "remote"
-},
+      "appVersionSource": "remote"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -17,34 +17,50 @@
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "GADApplicationIdentifier": "ca-app-pub-3940256099942544~1458002511",
+        "SKAdNetworkItems": [
+          { "SKAdNetworkIdentifier": "cstr6suwn9.skadnetwork" }
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.rudnex.app"
+      "package": "com.rudnex.app",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-"plugins": [
-  "expo-localization",
-  [
-    "expo-build-properties",
-    {
-      "android": {
-        "compileSdkVersion": 35,
-        "targetSdkVersion": 35,
-        "buildToolsVersion": "35.0.0",
-        "kotlinVersion": "2.0.21",
-        "minSdkVersion": 24
-      }
-    }
-  ],
-  "expo-secure-store"
-],
+    "plugins": [
+      "expo-localization",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "buildToolsVersion": "35.0.0",
+            "kotlinVersion": "2.0.21",
+            "minSdkVersion": 24
+          }
+        }
+      ],
+      "expo-secure-store",
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-3940256099942544~3347511713",
+          "iosAppId": "ca-app-pub-3940256099942544~1458002511",
+          "delay_app_measurement_init": true,
+          "user_tracking_usage_description": "This identifier will be used to show personalised ads to you."
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": "402a06e8-d05f-481f-b2e9-de4aebfabef5"

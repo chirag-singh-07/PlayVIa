@@ -4,20 +4,26 @@ import { Header } from '../components/Header';
 import { VideoCard } from '../components/VideoCard';
 import { colors } from '../theme';
 import { ScreenWrapper } from '../components/ScreenWrapper';
-import { SkeletonLoader } from '../components/SkeletonLoader';
 import { EmptyState } from '../components/EmptyState';
 import { useScrollHeader } from '../hooks/useScrollHeader';
 import { layout } from '../constants';
 import { videoService } from '../services/videoService';
 import { formatViews, formatTimeAgo, formatDuration, getCloudinaryThumbnail } from '../utils/videoUtils';
-
 import { VideoSkeleton } from '../components/VideoSkeleton';
+
+// ─── Ad Imports ───────────────────────────────────────────────────────────────
+import { useInterstitialAd } from '../hooks/ads/useInterstitialAd';
+import { BannerAdView } from '../components/ads/BannerAdView';
 
 export const HomeScreen: React.FC<any> = ({ navigation }) => {
   const { onScroll, headerTranslateY } = useScrollHeader(60);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [videos, setVideos] = useState<any[]>([]);
+
+  // ─── Ad Hook: handles every-3rd-video interstitial logic ─────────────────
+  // Replace direct navigation.navigate('VideoPlayer') calls with handleVideoPress
+  const { handleVideoPress } = useInterstitialAd(navigation);
 
   const fetchVideos = async (isRefreshing = false) => {
     try {
@@ -44,11 +50,11 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
   return (
     <ScreenWrapper edges={['top', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor={colors.dark.background} />
-      
+
       <Animated.View style={[styles.headerWrapper, { transform: [{ translateY: headerTranslateY }] }]}>
         <Header />
       </Animated.View>
-      
+
       {loading ? (
         <ScrollView style={{ paddingTop: 60 }} showsVerticalScrollIndicator={false}>
           <VideoSkeleton />
@@ -58,7 +64,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
       ) : (
         <Animated.FlatList
           data={videos}
-          keyExtractor={(item) => item._id} // MongoDB uses _id
+          keyExtractor={(item) => item._id}
           onScroll={onScroll}
           scrollEventThrottle={16}
           renderItem={({ item }) => (
@@ -70,7 +76,9 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
               views={formatViews(item.views || 0)}
               createdAt={formatTimeAgo(item.createdAt)}
               duration={formatDuration(item.duration)}
-              onPress={() => navigation.navigate('VideoPlayer', { video: item })}
+              // ✅ Use handleVideoPress instead of navigation.navigate
+              // This shows an interstitial every 3rd tap, then navigates
+              onPress={() => handleVideoPress(item)}
               onChannelPress={() => {
                 if (item.channel?._id) {
                   navigation.navigate('ChannelProfile', { channelId: item.channel._id });
@@ -89,12 +97,19 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
             />
           }
           ListEmptyComponent={
-            <EmptyState 
-              title="No videos found" 
+            <EmptyState
+              title="No videos found"
               message="Try refreshing the feed or check your internet connection."
               actionLabel="Refresh"
               onAction={onRefresh}
             />
+          }
+          // ─── Banner Ad at the bottom of the list ────────────────────────
+          // Shown once per session when the user reaches the end of the feed
+          ListFooterComponent={
+            <View style={styles.footerBanner}>
+              <BannerAdView size="BANNER" />
+            </View>
           }
         />
       )}
@@ -114,16 +129,10 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 20,
   },
-  skeletonContainer: {
-    marginBottom: layout.spacing.lg,
-  },
-  skeletonInfo: {
-    flexDirection: 'row',
-    padding: layout.spacing.md,
-  },
-  skeletonText: {
-    flex: 1,
-    marginLeft: layout.spacing.md,
-    justifyContent: 'center',
+  footerBanner: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: colors.dark.background,
   },
 });
+

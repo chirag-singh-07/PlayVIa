@@ -3,6 +3,8 @@ const User = require('../models/User');
 const generateToken = require('../utils/generateToken');
 const { generateOtp, hashOtp } = require('../utils/otpUtils');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/emailService');
+const axios = require('axios');
+const crypto = require('crypto');
 
 // @desc    Register a new user
 // @route   POST /api/auth/register
@@ -31,8 +33,7 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 
   // Generate unique referral code
-  const crypto = require('crypto');
-  const referralCode = crypto.randomBytes(4).toString('hex').toUpperCase();
+  const referralCode = require('crypto').randomBytes(4).toString('hex').toUpperCase();
 
   // Generate OTP
   const rawOtp = generateOtp();

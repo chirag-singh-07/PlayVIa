@@ -49,6 +49,21 @@ export default function CreatorSignupPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
+
+  const onGoogleLogin = async (accessToken: string) => {
+    setLoading(true);
+    try {
+      const user = await googleLogin(accessToken);
+      toast.success("Welcome to PayVia Studio!");
+      if (user.role === 'admin') navigate("/admin/dashboard");
+      else navigate("/creator/dashboard");
+    } catch (error: any) {
+      toast.error(error.message || "Google signup failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -101,7 +116,7 @@ export default function CreatorSignupPage() {
         </>
       }
     >
-      <SocialAuthRow />
+      <SocialAuthRow onGoogleSuccess={onGoogleLogin} />
       <Divider />
 
       <Form {...form}>

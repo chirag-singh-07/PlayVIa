@@ -8,7 +8,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
-import { login } from "@/lib/auth";
+import { login, googleLogin } from "@/lib/auth";
 import { toast } from "sonner";
 import { AuthShell, SocialAuthRow, Divider } from "@/components/auth/AuthShell";
 
@@ -47,6 +47,20 @@ export default function CreatorLoginPage() {
   };
 
 
+  const onGoogleLogin = async (accessToken: string) => {
+    setLoading(true);
+    try {
+      const user = await googleLogin(accessToken);
+      toast.success("Welcome back to PayVia Studio!");
+      if (user.role === 'admin') navigate("/admin/dashboard");
+      else navigate("/creator/dashboard");
+    } catch (error: any) {
+      toast.error(error.message || "Google login failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <AuthShell
       title="Welcome back"
@@ -61,7 +75,7 @@ export default function CreatorLoginPage() {
         </>
       }
     >
-      <SocialAuthRow />
+      <SocialAuthRow onGoogleSuccess={onGoogleLogin} />
       <Divider />
 
       <Form {...form}>

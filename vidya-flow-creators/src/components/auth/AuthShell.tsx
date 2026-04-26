@@ -118,31 +118,53 @@ export const AuthShell = ({ title, subtitle, children, footer, side = "creator" 
   );
 };
 
-export const SocialAuthRow = () => (
-  <div className="grid grid-cols-2 gap-3">
-    <button
-      type="button"
-      className="h-10 rounded-md border border-input bg-background hover:bg-muted/50 transition-smooth text-sm font-medium flex items-center justify-center gap-2"
-    >
-      <svg className="h-4 w-4" viewBox="0 0 24 24">
-        <path fill="#EA4335" d="M12 5c1.6 0 3 .55 4.1 1.6L19 3.7C17.1 2 14.7 1 12 1 7.3 1 3.3 3.7 1.4 7.7l3.4 2.6C5.7 7.4 8.6 5 12 5z"/>
-        <path fill="#4285F4" d="M23 12c0-.8-.1-1.6-.2-2.3H12v4.5h6.2c-.3 1.4-1.1 2.6-2.3 3.4l3.5 2.7c2.1-1.9 3.3-4.8 3.3-8.3z"/>
-        <path fill="#FBBC05" d="M4.8 14.3c-.2-.7-.4-1.5-.4-2.3s.1-1.6.4-2.3L1.4 7.1C.5 8.6 0 10.3 0 12s.5 3.4 1.4 4.9l3.4-2.6z"/>
-        <path fill="#34A853" d="M12 23c3 0 5.5-1 7.4-2.7l-3.5-2.7c-1 .7-2.3 1.1-3.9 1.1-3.4 0-6.3-2.4-7.2-5.4L1.4 16c1.9 4 5.9 7 10.6 7z"/>
-      </svg>
-      Google
-    </button>
-    <button
-      type="button"
-      className="h-10 rounded-md border border-input bg-background hover:bg-muted/50 transition-smooth text-sm font-medium flex items-center justify-center gap-2"
-    >
-      <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
-        <path d="M16.4 1.5c0 1.1-.4 2.2-1.2 3-.8.9-2 1.5-3.1 1.4-.1-1.1.4-2.2 1.2-3 .8-.8 2-1.4 3.1-1.4zM20.5 17c-.6 1.4-.9 2-1.7 3.3-1.1 1.7-2.6 3.8-4.5 3.8-1.7 0-2.1-1.1-4.4-1.1-2.3 0-2.8 1.1-4.5 1.1-1.9 0-3.4-1.9-4.5-3.6C-1.4 16.4-1.7 10 1.4 6.6 3.6 4.2 7.1 3.4 9.7 5.4c.9-.3 2-.7 3.4-.7 1.7 0 2.7.5 3.6.9 2.7-1.5 6 .3 6.3 4.6-.6.4-3 1.7-2.5 6.8z"/>
-      </svg>
-      Apple
-    </button>
-  </div>
-);
+import { useGoogleLogin } from "@react-oauth/google";
+import { toast } from "sonner";
+
+export const SocialAuthRow = ({ onGoogleSuccess }: { onGoogleSuccess?: (token: string) => void }) => {
+  const googleLogin = useGoogleLogin({
+    onSuccess: (response) => {
+      if (onGoogleSuccess) onGoogleSuccess(response.access_token);
+    },
+    onError: () => {
+      toast.error("Google login failed. Please try again.");
+    },
+  });
+
+  const handleAppleClick = () => {
+    toast.info("Apple login coming soon!", {
+      description: "We're working hard to bring Apple Sign-In to PayVia Studio.",
+    });
+  };
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <button
+        type="button"
+        onClick={() => googleLogin()}
+        className="h-10 rounded-md border border-input bg-background hover:bg-muted/50 transition-smooth text-sm font-medium flex items-center justify-center gap-2"
+      >
+        <svg className="h-4 w-4" viewBox="0 0 24 24">
+          <path fill="#EA4335" d="M12 5c1.6 0 3 .55 4.1 1.6L19 3.7C17.1 2 14.7 1 12 1 7.3 1 3.3 3.7 1.4 7.7l3.4 2.6C5.7 7.4 8.6 5 12 5z"/>
+          <path fill="#4285F4" d="M23 12c0-.8-.1-1.6-.2-2.3H12v4.5h6.2c-.3 1.4-1.1 2.6-2.3 3.4l3.5 2.7c2.1-1.9 3.3-4.8 3.3-8.3z"/>
+          <path fill="#FBBC05" d="M4.8 14.3c-.2-.7-.4-1.5-.4-2.3s.1-1.6.4-2.3L1.4 7.1C.5 8.6 0 10.3 0 12s.5 3.4 1.4 4.9l3.4-2.6z"/>
+          <path fill="#34A853" d="M12 23c3 0 5.5-1 7.4-2.7l-3.5-2.7c-1 .7-2.3 1.1-3.9 1.1-3.4 0-6.3-2.4-7.2-5.4L1.4 16c1.9 4 5.9 7 10.6 7z"/>
+        </svg>
+        Google
+      </button>
+      <button
+        type="button"
+        onClick={handleAppleClick}
+        className="h-10 rounded-md border border-input bg-background hover:bg-muted/50 transition-smooth text-sm font-medium flex items-center justify-center gap-2"
+      >
+        <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
+          <path d="M16.4 1.5c0 1.1-.4 2.2-1.2 3-.8.9-2 1.5-3.1 1.4-.1-1.1.4-2.2 1.2-3 .8-.8 2-1.4 3.1-1.4zM20.5 17c-.6 1.4-.9 2-1.7 3.3-1.1 1.7-2.6 3.8-4.5 3.8-1.7 0-2.1-1.1-4.4-1.1-2.3 0-2.8 1.1-4.5 1.1-1.9 0-3.4-1.9-4.5-3.6C-1.4 16.4-1.7 10 1.4 6.6 3.6 4.2 7.1 3.4 9.7 5.4c.9-.3 2-.7 3.4-.7 1.7 0 2.7.5 3.6.9 2.7-1.5 6 .3 6.3 4.6-.6.4-3 1.7-2.5 6.8z"/>
+        </svg>
+        Apple
+      </button>
+    </div>
+  );
+};
 
 export const Divider = ({ children = "or continue with" }: { children?: string }) => (
   <div className="relative my-6">

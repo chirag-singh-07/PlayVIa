@@ -70,6 +70,27 @@ export async function login(email: string, password: string): Promise<AuthUser> 
   }
 }
 
+export async function googleLogin(accessToken: string): Promise<AuthUser> {
+  try {
+    const response = await api.post('/auth/google', { accessToken });
+    const { token, ...userData } = response.data;
+
+    const user: AuthUser = {
+      id: userData._id,
+      name: userData.name || userData.username,
+      email: userData.email,
+      role: userData.role || "user",
+      avatar: userData.avatar,
+      token,
+    };
+
+    setUser(user);
+    return user;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.message || 'Google login failed');
+  }
+}
+
 export async function register(userData: {
   name: string;
   username: string;

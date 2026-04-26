@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useTheme } from "@/components/ThemeProvider";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
+import { UserAvatar } from "@/components/admin/UserAvatar";
 
 const TITLES: Record<string, string> = {
   "/admin/dashboard": "Dashboard",
@@ -79,8 +80,8 @@ export function AdminHeader({ onMenuClick }: Props) {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="w-9 h-9 rounded-full bg-gradient-brand text-white text-sm font-bold flex items-center justify-center shrink-0 hover:opacity-90 transition-opacity">
-                {admin?.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase() ?? "A"}
+              <button className="shrink-0 hover:opacity-90 transition-opacity">
+                <UserAvatar src={admin?.avatar} name={admin?.name} />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">

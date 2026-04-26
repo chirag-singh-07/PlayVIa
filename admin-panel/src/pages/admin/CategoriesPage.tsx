@@ -7,6 +7,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Plus, Pencil, Trash2, GripVertical, FolderTree, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { adminService } from "@/lib/adminService";
@@ -16,6 +20,7 @@ export default function CategoriesPage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<any | null>(null);
   const [open, setOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "", slug: "", icon: "📁", description: "", active: true,
   });
@@ -69,13 +74,14 @@ export default function CategoriesPage() {
   }
   
   async function remove(id: string) {
-    if (!confirm("Are you sure you want to delete this category?")) return;
     try {
       await adminService.deleteCategory(id);
       toast.success("Category deleted");
       fetchCategories();
     } catch (error) {
       toast.error("Failed to delete category");
+    } finally {
+      setDeleteConfirm(null);
     }
   }
   
@@ -162,7 +168,7 @@ export default function CategoriesPage() {
                 <TableCell><Switch checked={c.active} onCheckedChange={() => toggle(c._id, c.active)} /></TableCell>
                 <TableCell className="text-right">
                   <Button size="sm" variant="ghost" onClick={() => openEdit(c)}><Pencil className="w-4 h-4" /></Button>
-                  <Button size="sm" variant="ghost" onClick={() => remove(c._id)} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                  <Button size="sm" variant="ghost" onClick={() => setDeleteConfirm(c._id)} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
                 </TableCell>
               </TableRow>
             ))}
@@ -174,6 +180,23 @@ export default function CategoriesPage() {
           </TableBody>
         </Table>
       </Card>
+
+      <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this category?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the category and remove its data from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteConfirm && remove(deleteConfirm)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

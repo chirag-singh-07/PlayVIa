@@ -19,6 +19,11 @@ const {
   createAnnouncement,
   getSettings,
   updateSettings,
+  getAllComments,
+  deleteComment,
+  getCreatorApplications,
+  updateCreatorApplication,
+  getAllChannels,
 } = require('../controllers/adminController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
@@ -43,5 +48,13 @@ router.post('/announcements', protect, admin, createAnnouncement);
 
 router.get('/settings', protect, admin, getSettings);
 router.put('/settings', protect, admin, updateSettings);
+
+router.get('/comments', protect, admin, getAllComments);
+router.delete('/comments/:id', protect, admin, deleteComment);
+
+router.get('/creator-applications', protect, admin, getCreatorApplications);
+router.put('/creator-applications/:id', protect, admin, updateCreatorApplication);
+
+router.get('/channels', protect, admin, getAllChannels);
 
 module.exports = router;

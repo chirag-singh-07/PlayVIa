@@ -29,7 +29,6 @@
       "favicon": "./assets/favicon.png"
     },
 "plugins": [
-  "expo-router",
   "expo-localization",
   [
     "expo-build-properties",
@@ -45,13 +44,7 @@
   ],
   "expo-secure-store"
 ],
-    "experiments": {
-      "typedRoutes": true
-    },
     "extra": {
-      "router": {
-        "origin": false
-      },
       "eas": {
         "projectId": "402a06e8-d05f-481f-b2e9-de4aebfabef5"
       }

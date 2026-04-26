@@ -5,6 +5,9 @@ const Report = require('../models/Report');
 const Category = require('../models/Category');
 const Announcement = require('../models/Announcement');
 const Setting = require('../models/Setting');
+const Comment = require('../models/Comment');
+const CreatorApplication = require('../models/CreatorApplication');
+const Channel = require('../models/Channel');
 
 // @desc    Get admin dashboard stats
 // @route   GET /api/admin/stats
@@ -251,6 +254,66 @@ const updateSettings = asyncHandler(async (req, res) => {
   res.json(updatedSettings);
 });
 
+// @desc    Get all comments
+// @route   GET /api/admin/comments
+// @access  Private/Admin
+const getAllComments = asyncHandler(async (req, res) => {
+  const comments = await Comment.find()
+    .populate('user', 'username email avatar')
+    .populate('video', 'title')
+    .sort('-createdAt');
+  res.json(comments);
+});
+
+// @desc    Delete comment
+// @route   DELETE /api/admin/comments/:id
+// @access  Private/Admin
+const deleteComment = asyncHandler(async (req, res) => {
+  const comment = await Comment.findById(req.params.id);
+  if (comment) {
+    await comment.remove();
+    res.json({ message: 'Comment removed' });
+  } else {
+    res.status(404);
+    throw new Error('Comment not found');
+  }
+});
+
+// @desc    Get all creator applications
+// @route   GET /api/admin/creator-applications
+// @access  Private/Admin
+const getCreatorApplications = asyncHandler(async (req, res) => {
+  const applications = await CreatorApplication.find()
+    .populate('user', 'username email avatar')
+    .sort('-createdAt');
+  res.json(applications);
+});
+
+// @desc    Update creator application
+// @route   PUT /api/admin/creator-applications/:id
+// @access  Private/Admin
+const updateCreatorApplication = asyncHandler(async (req, res) => {
+  const application = await CreatorApplication.findById(req.params.id);
+  if (application) {
+    application.status = req.body.status || application.status;
+    const updatedApplication = await application.save();
+    res.json(updatedApplication);
+  } else {
+    res.status(404);
+    throw new Error('Creator application not found');
+  }
+});
+
+// @desc    Get all channels
+// @route   GET /api/admin/channels
+// @access  Private/Admin
+const getAllChannels = asyncHandler(async (req, res) => {
+  const channels = await Channel.find()
+    .populate('owner', 'username email avatar')
+    .sort('-subscribersCount');
+  res.json(channels);
+});
+
 module.exports = {
   getAdminStats,
   getRecentVideos,
@@ -270,4 +333,9 @@ module.exports = {
   createAnnouncement,
   getSettings,
   updateSettings,
+  getAllComments,
+  deleteComment,
+  getCreatorApplications,
+  updateCreatorApplication,
+  getAllChannels,
 };

@@ -40,20 +40,28 @@ export const RegisterScreen: React.FC<any> = ({ navigation }) => {
     validateUsername(formData.username) &&
     validateEmail(formData.email) &&
     validatePhone(formData.phone) &&
-    passwordScore >= 3 &&
+    passwordScore >= 2 && // Reduced requirement for better UX
     formData.password === formData.confirmPassword &&
     agreed;
 
   const handleRegister = async () => {
-    if (!isValid) return;
+    console.log('Register attempt:', formData);
+    if (!isValid) {
+      console.log('Form invalid. Check fields.');
+      return;
+    }
+    
     setIsLoading(true);
     try {
-      await authService.register(formData);
+      console.log('Calling authService.register...');
+      const response = await authService.register(formData);
+      console.log('Register success:', response);
       setIsLoading(false);
       navigation.navigate('OTPVerification', { email: formData.email });
     } catch (error: any) {
+      console.error('Register error:', error);
       setIsLoading(false);
-      const errorMsg = error.response?.data?.message || 'Failed to register. Please try again.';
+      const errorMsg = error.response?.data?.message || 'Failed to register. Please check your network and try again.';
       Alert.alert('Registration Failed', errorMsg);
     }
   };
@@ -87,6 +95,7 @@ export const RegisterScreen: React.FC<any> = ({ navigation }) => {
             icon="person-outline"
             value={formData.name}
             onChangeText={(v) => updateField('name', v)}
+            error={formData.name.length > 0 && formData.name.length < 2 ? "Name too short" : undefined}
           />
 
           <AuthInput
@@ -95,6 +104,7 @@ export const RegisterScreen: React.FC<any> = ({ navigation }) => {
             value={formData.username}
             onChangeText={(v) => updateField('username', v)}
             autoCapitalize="none"
+            error={formData.username.length > 0 && !validateUsername(formData.username) ? "3-20 chars (alphanumeric/_)" : undefined}
           />
 
           <AuthInput
@@ -104,6 +114,7 @@ export const RegisterScreen: React.FC<any> = ({ navigation }) => {
             onChangeText={(v) => updateField('email', v)}
             keyboardType="email-address"
             autoCapitalize="none"
+            error={formData.email.length > 0 && !validateEmail(formData.email) ? "Invalid email address" : undefined}
           />
 
           <AuthInput
@@ -113,6 +124,7 @@ export const RegisterScreen: React.FC<any> = ({ navigation }) => {
             onChangeText={(v) => updateField('phone', v)}
             keyboardType="phone-pad"
             maxLength={10}
+            error={formData.phone.length > 0 && !validatePhone(formData.phone) ? "Enter 10 digit number" : undefined}
           />
 
           <AuthInput

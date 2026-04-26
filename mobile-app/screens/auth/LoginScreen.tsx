@@ -36,14 +36,21 @@ export const LoginScreen: React.FC<any> = ({ navigation }) => {
   const { login: authLogin } = useAuth();
 
   const handleLogin = async () => {
-    if (!isFormValid) return;
+    console.log('Login attempt:', email);
+    if (!isFormValid) {
+      console.log('Login form invalid');
+      return;
+    }
     setIsLoading(true);
     try {
+      console.log('Calling authLogin...');
       await authLogin(email, password);
+      console.log('Login success');
       // AuthProvider will automatically switch to AppNavigator
     } catch (error: any) {
+      console.error('Login error:', error);
       setIsLoading(false);
-      const errorMsg = error.response?.data?.message || 'Failed to login. Please check your credentials.';
+      const errorMsg = error.response?.data?.message || 'Failed to login. Please check your network and credentials.';
       Alert.alert('Login Failed', errorMsg);
     }
   };

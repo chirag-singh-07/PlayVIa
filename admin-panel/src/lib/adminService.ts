@@ -89,5 +89,30 @@ export const adminService = {
   updateSettings: async (data: any) => {
     const response = await api.put('/admin/settings', data);
     return response.data;
+  },
+
+  getComments: async () => {
+    const response = await api.get('/admin/comments');
+    return response.data;
+  },
+
+  deleteComment: async (id: string) => {
+    const response = await api.delete(`/admin/comments/${id}`);
+    return response.data;
+  },
+
+  getCreatorApplications: async () => {
+    const response = await api.get('/admin/creator-applications');
+    return response.data;
+  },
+
+  updateCreatorApplication: async (id: string, status: string) => {
+    const response = await api.put(`/admin/creator-applications/${id}`, { status });
+    return response.data;
+  },
+
+  getChannels: async () => {
+    const response = await api.get('/admin/channels');
+    return response.data;
   }
 };

@@ -72,3 +72,8 @@ Go to Play Console
 Production → Create new release
 Upload your AAB
 Submit ✅
+
+
+Login URL: http://localhost:5173/admin/login
+Email:     admin@playvia.app
+Password:  adminpassword123

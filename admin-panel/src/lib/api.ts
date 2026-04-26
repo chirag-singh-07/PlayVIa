@@ -7,9 +7,9 @@ const api = axios.create({
 // Add a request interceptor to include the token
 api.interceptors.request.use(
   (config) => {
-    const userInfo = localStorage.getItem('userInfo');
-    if (userInfo) {
-      const { token } = JSON.parse(userInfo);
+    const authData = localStorage.getItem('playvia-admin-auth') || localStorage.getItem('userInfo');
+    if (authData) {
+      const { token } = JSON.parse(authData);
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;

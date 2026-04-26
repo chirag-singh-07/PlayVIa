@@ -15,6 +15,7 @@ export const PasswordStrength: React.FC<PasswordStrengthProps> = ({ score }) => 
   const themeColors = theme === 'dark' ? colors.dark : colors.light;
 
   const getStrengthColor = () => {
+    'worklet';
     switch (score) {
       case 1: return colors.error;
       case 2: return colors.warning;

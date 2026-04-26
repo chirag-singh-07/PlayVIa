@@ -14,14 +14,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Search, Download, MoreHorizontal, Eye, Edit, Star, Ban, Trash2,
   ChevronLeft, ChevronRight, ArrowUpDown, Play, Heart, MessageCircle, Share2,
+  Loader2,
 } from "lucide-react";
 import { generateVideos, fmtCompact, fmtDate, type Video, VIDEO_STATUSES, CATEGORIES } from "@/lib/adminMock";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ResponsiveContainer, LineChart, Line, XAxis, Tooltip } from "recharts";
 import { adminService } from "@/lib/adminService";
+import { UserAvatar } from "@/components/admin/UserAvatar";
 
 export default function VideosPage() {
   const [videos, setVideos] = useState<any[]>([]);
@@ -32,6 +38,7 @@ export default function VideosPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [rowSelection, setRowSelection] = useState({});
   const [active, setActive] = useState<any | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const fetchVideos = async () => {
     setLoading(true);
@@ -51,7 +58,6 @@ export default function VideosPage() {
   }, []);
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this video?")) return;
     try {
       await adminService.deleteVideo(id);
       toast.success("Video deleted");
@@ -59,6 +65,8 @@ export default function VideosPage() {
       if (active && active._id === id) setActive(null);
     } catch (error) {
       toast.error("Failed to delete video");
+    } finally {
+      setDeleteConfirm(null);
     }
   };
 
@@ -99,7 +107,15 @@ export default function VideosPage() {
         </div>
       ),
     },
-    { accessorKey: "channel.name", header: "Creator", cell: (info) => <span className="text-sm">{info.getValue<string>() || "Unknown"}</span> },
+    {
+      accessorKey: "channel.name", header: "Creator",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <UserAvatar src={row.original.uploader?.avatar} name={row.original.uploader?.username} className="w-7 h-7 text-[10px]" />
+          <span className="text-sm">{row.original.uploader?.username || "Unknown"}</span>
+        </div>
+      )
+    },
     { accessorKey: "category", header: "Category", cell: (info) => <span className="text-sm text-muted-foreground">{info.getValue<string>()}</span> },
     {
       accessorKey: "views", header: ({ column }) => (
@@ -143,7 +159,7 @@ export default function VideosPage() {
               className="text-destructive focus:text-destructive"
               onClick={(e) => {
                 e.stopPropagation();
-                handleDelete(row.original._id);
+                setDeleteConfirm(row.original._id);
               }}
             >
               <Trash2 className="w-4 h-4 mr-2" /> Delete
@@ -306,6 +322,14 @@ export default function VideosPage() {
                   </div>
                 </div>
                 
+                <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
+                  <UserAvatar src={active.uploader?.avatar} name={active.uploader?.username} />
+                  <div>
+                    <div className="font-medium">{active.uploader?.username || "Unknown Creator"}</div>
+                    <div className="text-xs text-muted-foreground">{active.uploader?.email || "No email"}</div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div><div className="text-xs text-muted-foreground">Status</div><div className="mt-1"><StatusBadge status={active.isPublished ? "Active" : "Draft"} /></div></div>
                   <div><div className="text-xs text-muted-foreground">Uploaded</div><div className="mt-1 font-medium tabular-nums">{fmtDate(active.createdAt)}</div></div>
@@ -319,7 +343,7 @@ export default function VideosPage() {
                     variant="outline" 
                     size="sm" 
                     className="text-destructive hover:text-destructive"
-                    onClick={() => handleDelete(active._id)}
+                    onClick={() => setDeleteConfirm(active._id)}
                   >
                     <Trash2 className="w-4 h-4 mr-2" /> Delete
                   </Button>
@@ -329,6 +353,23 @@ export default function VideosPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this video?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the video and remove its data from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteConfirm && handleDelete(deleteConfirm)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

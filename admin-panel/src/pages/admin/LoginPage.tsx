@@ -49,7 +49,7 @@ export default function AdminLoginPage() {
         return;
       }
 
-      localStorage.setItem("userInfo", JSON.stringify(response.data));
+      localStorage.setItem("playvia-admin-auth", JSON.stringify({ ...response.data, ts: Date.now() }));
       toast.success("Welcome back, Admin!");
       navigate("/admin/dashboard");
     } catch (error: any) {

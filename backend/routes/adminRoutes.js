@@ -7,6 +7,7 @@ const {
   getPendingReports,
   getAllUsers,
   toggleUserBan,
+  deleteUser,
   getAllVideos,
   deleteVideo,
   getAllReports,
@@ -33,6 +34,7 @@ router.get('/recent-users', protect, admin, getRecentUsers);
 router.get('/reports', protect, admin, getPendingReports);
 router.get('/users', protect, admin, getAllUsers);
 router.put('/users/:id/ban', protect, admin, toggleUserBan);
+router.delete('/users/:id', protect, admin, deleteUser);
 router.get('/videos', protect, admin, getAllVideos);
 router.delete('/videos/:id', protect, admin, deleteVideo);
 router.get('/reports/all', protect, admin, getAllReports);

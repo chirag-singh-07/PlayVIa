@@ -62,6 +62,19 @@ export default function UsersPage() {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this user? This action cannot be undone.")) return;
+    
+    try {
+      await adminService.deleteUser(id);
+      toast.success("User deleted successfully");
+      fetchUsers();
+      if (active && active._id === id) setActive(null);
+    } catch (error) {
+      toast.error("Failed to delete user");
+    }
+  };
+
   const data = useMemo(() => users.filter((u) => {
     const q = search.trim().toLowerCase();
     const passQ = !q || u.username.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
@@ -135,7 +148,15 @@ export default function UsersPage() {
             >
               <Ban className="w-4 h-4 mr-2" /> {row.original.isBanned ? "Unban" : "Ban"}
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive focus:text-destructive"><Trash2 className="w-4 h-4 mr-2" /> Delete</DropdownMenuItem>
+            <DropdownMenuItem 
+              className="text-destructive focus:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(row.original._id);
+              }}
+            >
+              <Trash2 className="w-4 h-4 mr-2" /> Delete
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -326,7 +347,14 @@ export default function UsersPage() {
                   >
                     <Ban className="w-4 h-4 mr-2" /> {active.isBanned ? "Unban" : "Ban"}
                   </Button>
-                  <Button variant="outline" size="sm" className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4 mr-2" /> Delete</Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => handleDelete(active._id)}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" /> Delete
+                  </Button>
                 </div>
               </div>
             </>

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { fmtDate } from "@/lib/adminMock";
-import { Search, Undo2, Clock, UserX, Loader2 } from "lucide-react";
+import { Search, Undo2, Clock, UserX, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { adminService } from "@/lib/adminService";
 import { UserAvatar } from "@/components/admin/UserAvatar";
@@ -38,6 +38,17 @@ export default function BannedUsersPage() {
       fetchUsers();
     } catch (error) {
       toast.error("Failed to unban user");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this user? This action cannot be undone.")) return;
+    try {
+      await adminService.deleteUser(id);
+      toast.success("User deleted successfully");
+      fetchUsers();
+    } catch (error) {
+      toast.error("Failed to delete user");
     }
   };
 
@@ -91,6 +102,7 @@ export default function BannedUsersPage() {
                 <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{fmtDate(b.updatedAt)}</TableCell>
                 <TableCell className="text-right whitespace-nowrap">
                   <Button size="sm" variant="ghost" onClick={() => handleUnban(b._id)}><Undo2 className="w-4 h-4 mr-1" />Unban</Button>
+                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDelete(b._id)}><Trash2 className="w-4 h-4" /></Button>
                 </TableCell>
               </TableRow>
             ))}

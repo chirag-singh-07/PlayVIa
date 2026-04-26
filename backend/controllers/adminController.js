@@ -314,6 +314,25 @@ const getAllChannels = asyncHandler(async (req, res) => {
   res.json(channels);
 });
 
+// @desc    Delete user
+// @route   DELETE /api/admin/users/:id
+// @access  Private/Admin
+const deleteUser = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.id);
+
+  if (user) {
+    if (user.role === 'admin') {
+      res.status(400);
+      throw new Error('Cannot delete admin user');
+    }
+    await user.deleteOne();
+    res.json({ message: 'User removed successfully' });
+  } else {
+    res.status(404);
+    throw new Error('User not found');
+  }
+});
+
 module.exports = {
   getAdminStats,
   getRecentVideos,
@@ -321,6 +340,7 @@ module.exports = {
   getPendingReports,
   getAllUsers,
   toggleUserBan,
+  deleteUser,
   getAllVideos,
   deleteVideo,
   getAllReports,

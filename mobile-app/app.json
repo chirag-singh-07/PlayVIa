@@ -5,7 +5,7 @@
     "scheme": "playvia",
     "version": "1.0.0",
     "cli": {
-      "appVersionSource": "remote"
+      "appVersionSource": "local"
     },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -20,6 +20,7 @@
       "supportsTablet": true
     },
     "android": {
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -50,7 +51,7 @@
       [
         "react-native-google-mobile-ads",
         {
-          "androidAppId": "ca-app-pub-3940256099942544~3347511713",
+          "androidAppId": "ca-app-pub-4867895597149993~9493013109",
           "iosAppId": "ca-app-pub-3940256099942544~1458002511",
           "delay_app_measurement_init": true,
           "user_tracking_usage_description": "This identifier will be used to show personalised ads to you."

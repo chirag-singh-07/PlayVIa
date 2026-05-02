@@ -5,6 +5,8 @@ import { AuthNavigator } from './navigation/AuthNavigator';
 import { ThemeProvider } from './theme/ThemeProvider';
 import { ActivityIndicator, View, StatusBar } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { colors } from './theme';
 import { AppTheme } from './navigation/AppNavigator';
 
@@ -29,10 +31,14 @@ const RootNavigator = () => {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <RootNavigator />
-      </AuthProvider>
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <RootNavigator />
+          </AuthProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

@@ -7,15 +7,17 @@ const nodemailer = require('nodemailer');
  */
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
-  port: 465,
-  secure: true, // use SSL
+  port: 587,
+  secure: false,  // Use STARTTLS (port 587) — port 465 uses IPv6 which Render blocks
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
   tls: {
-    rejectUnauthorized: false, // allow self-signed certs on some hosts
+    rejectUnauthorized: false,
   },
+  // Force IPv4 — Render free tier blocks outbound IPv6 (ENETUNREACH on port 465)
+  family: 4,
 });
 
 /**

@@ -9,14 +9,15 @@ interface ParsedError {
 }
 
 export const parseAuthError = (error: any): ParsedError => {
-  // Network error (no internet / server down)
+  // Network error (no internet / server down / Render cold start)
   if (!error.response) {
     return {
       title: '🌐 Connection Error',
       message: 'Could not connect to the server.',
-      suggestion: 'Please check your internet connection and try again.',
+      suggestion: 'The server may be waking up from sleep. Please wait 10–20 seconds and tap try again. If this continues, check your internet connection.',
     };
   }
+
 
   const status = error.response?.status;
   const serverMessage: string = error.response?.data?.message || '';

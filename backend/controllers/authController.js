@@ -19,17 +19,23 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 
   // Check for duplicate email
-  const emailExists = await User.findOne({ email: email.toLowerCase() });
+  let emailExists = await User.findOne({ email: email.toLowerCase() });
   if (emailExists) {
-    res.status(400);
-    throw new Error('An account with this email already exists');
+    if (emailExists.isVerified) {
+      res.status(400);
+      throw new Error('An account with this email already exists');
+    }
+    // If it exists but is NOT verified, we will just update the user instead of failing.
   }
 
   // Check for duplicate username
   const usernameExists = await User.findOne({ username: username.toLowerCase() });
   if (usernameExists) {
-    res.status(400);
-    throw new Error('This username is already taken. Please choose another.');
+    // If it exists, but it belongs to the same unverified user we are trying to update, allow it.
+    if (!emailExists || usernameExists._id.toString() !== emailExists._id.toString()) {
+      res.status(400);
+      throw new Error('This username is already taken. Please choose another.');
+    }
   }
 
   // Generate unique referral code
@@ -42,17 +48,30 @@ const registerUser = asyncHandler(async (req, res) => {
 
   let user;
   try {
-    user = await User.create({
-      username: username.toLowerCase(),
-      email: email.toLowerCase(),
-      password,
-      name,
-      phone,
-      referralCode,
-      otp: hashedOtp,
-      otpExpiry: expiryTime,
-      isVerified: false,
-    });
+    if (emailExists) {
+      // Update existing unverified user with new details and new OTP
+      emailExists.username = username.toLowerCase();
+      emailExists.password = password; // Will be hashed by Mongoose pre-save hook
+      if (name) emailExists.name = name;
+      if (phone) emailExists.phone = phone;
+      emailExists.otp = hashedOtp;
+      emailExists.otpExpiry = expiryTime;
+      emailExists.otpAttempts = 0;
+      await emailExists.save();
+      user = emailExists;
+    } else {
+      user = await User.create({
+        username: username.toLowerCase(),
+        email: email.toLowerCase(),
+        password,
+        name,
+        phone,
+        referralCode,
+        otp: hashedOtp,
+        otpExpiry: expiryTime,
+        isVerified: false,
+      });
+    }
   } catch (dbError) {
     // Handle MongoDB duplicate key errors that slipped through
     if (dbError.code === 11000) {

@@ -1,16 +1,17 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle, ActivityIndicator } from 'react-native';
 import { colors, typography } from '../theme';
 import { layout } from '../constants';
 
 interface ButtonProps {
   title: string;
-  onPress: () => void;
+  onPress: () => void | Promise<void>;
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
   style?: ViewStyle;
   textStyle?: TextStyle;
   disabled?: boolean;
+  isLoading?: boolean;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -21,6 +22,7 @@ export const Button: React.FC<ButtonProps> = ({
   style,
   textStyle,
   disabled = false,
+  isLoading = false,
 }) => {
   const getContainerStyle = () => {
     switch (variant) {
@@ -75,12 +77,16 @@ export const Button: React.FC<ButtonProps> = ({
         style,
       ]}
       onPress={onPress}
-      disabled={disabled}
+      disabled={disabled || isLoading}
       activeOpacity={0.8}
     >
-      <Text style={[styles.baseText, getTextStyle(), disabled && styles.disabledText, textStyle]}>
-        {title}
-      </Text>
+      {isLoading ? (
+        <ActivityIndicator color={variant === 'primary' ? colors.dark.black : colors.dark.text} />
+      ) : (
+        <Text style={[styles.baseText, getTextStyle(), disabled && styles.disabledText, textStyle]}>
+          {title}
+        </Text>
+      )}
     </TouchableOpacity>
   );
 };

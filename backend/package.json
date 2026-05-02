@@ -32,7 +32,8 @@
     "multer-s3": "^3.0.1",
     "multer-storage-cloudinary": "^4.0.0",
     "node-cron": "^4.2.1",
-    "nodemailer": "^8.0.6"
+    "nodemailer": "^8.0.6",
+    "resend": "^6.12.2"
   },
   "devDependencies": {
     "esbuild": "^0.28.0",

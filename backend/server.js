@@ -2,6 +2,10 @@ const dotenv = require('dotenv');
 // ⚠️ MUST be called first before any other require() that reads process.env
 dotenv.config();
 
+// Force Node.js to use IPv4 over IPv6. Render free tier blocks outbound IPv6,
+// causing Gmail SMTP (smtp.gmail.com) to fail with ENETUNREACH.
+require('dns').setDefaultResultOrder('ipv4first');
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');

@@ -106,9 +106,9 @@ export const AuthInput: React.FC<AuthInputProps> = ({
       </Animated.View>
       
       {error && (
-        <Animated.Text style={styles.errorText}>
+        <Text style={styles.errorText}>
           {error}
-        </Animated.Text>
+        </Text>
       )}
     </View>
   );

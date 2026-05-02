@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity, InteractionManager } from 'react-native';
 import Animated, { FadeInRight, FadeOutLeft, interpolate, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -43,12 +43,16 @@ export const OnboardingScreen: React.FC<any> = ({ navigation }) => {
     if (currentIndex < slides.length - 1) {
       setCurrentIndex(currentIndex + 1);
     } else {
-      navigation.replace('Login');
+      InteractionManager.runAfterInteractions(() => {
+        navigation.replace('Login');
+      });
     }
   };
 
   const handleSkip = () => {
-    navigation.replace('Login');
+    InteractionManager.runAfterInteractions(() => {
+      navigation.replace('Login');
+    });
   };
 
   const Dot = ({ index }: { index: number }) => {

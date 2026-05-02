@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -65,24 +64,24 @@ export const LoginScreen: React.FC<any> = ({ navigation }) => {
   };
 
   return (
-    <ScreenWrapper useSafeArea>
-      <KeyboardAwareScrollView 
+    <ScreenWrapper useSafeArea withKeyboardAvoidView>
+      <ScrollView 
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        <Animated.View entering={FadeInUp.duration(600).delay(100)} style={styles.header}>
+        <Animated.View entering={FadeInUp.duration(400)} style={styles.header}>
           <Ionicons name="logo-youtube" size={40} color={colors.primary} />
           <Text style={[styles.appName, { color: themeColors.textPrimary }]}>VidPlay</Text>
         </Animated.View>
 
-        <Animated.View entering={FadeInUp.duration(600).delay(200)}>
+        <Animated.View entering={FadeInUp.duration(400)}>
           <Text style={[styles.title, { color: themeColors.textPrimary }]}>Welcome Back 👋</Text>
           <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
             Login to continue watching
           </Text>
         </Animated.View>
 
-        <Animated.View entering={FadeInUp.duration(600).delay(300)} style={styles.form}>
+        <Animated.View entering={FadeInUp.duration(400)} style={styles.form}>
           <AuthInput
             label="Email Address"
             icon="mail-outline"
@@ -128,7 +127,7 @@ export const LoginScreen: React.FC<any> = ({ navigation }) => {
             </TouchableOpacity>
           </View>
         </Animated.View>
-      </KeyboardAwareScrollView>
+      </ScrollView>
     </ScreenWrapper>
   );
 };

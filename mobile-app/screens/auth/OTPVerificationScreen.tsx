@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -90,14 +89,14 @@ export const OTPVerificationScreen: React.FC<any> = ({ navigation, route }) => {
   };
 
   return (
-    <ScreenWrapper useSafeArea>
+    <ScreenWrapper useSafeArea withKeyboardAvoidView>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{top:10, bottom:10, left:10, right:10}}>
           <Ionicons name="arrow-back" size={24} color={themeColors.textPrimary} />
         </TouchableOpacity>
       </View>
 
-      <KeyboardAwareScrollView
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
@@ -156,7 +155,7 @@ export const OTPVerificationScreen: React.FC<any> = ({ navigation, route }) => {
             </Text>
           </TouchableOpacity>
         </Animated.View>
-      </KeyboardAwareScrollView>
+      </ScrollView>
     </ScreenWrapper>
   );
 };

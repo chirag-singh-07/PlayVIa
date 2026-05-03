@@ -15,23 +15,22 @@
  * Rewarded     : ca-app-pub-3940256099942544/5224354917
  */
 
-
 const IS_DEV = __DEV__;
 
 // ─── Test Ad Unit IDs (Google official test IDs) ────────────────────────────
 const TEST_IDS = {
-  INTERSTITIAL: 'ca-app-pub-3940256099942544/1033173712',
-  BANNER: 'ca-app-pub-3940256099942544/6300978111',
-  REWARDED: 'ca-app-pub-3940256099942544/5224354917',
-  NATIVE: 'ca-app-pub-3940256099942544/2247696110',
+  INTERSTITIAL: "ca-app-pub-3940256099942544/1033173712",
+  BANNER: "ca-app-pub-3940256099942544/6300978111",
+  REWARDED: "ca-app-pub-3940256099942544/5224354917",
+  NATIVE: "ca-app-pub-3940256099942544/2247696110",
 };
 
 // ─── Production Ad Unit IDs (set via EAS secrets or .env) ───────────────────
 const PROD_IDS = {
-  INTERSTITIAL: process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_ID || '',
-  BANNER: process.env.EXPO_PUBLIC_ADMOB_BANNER_ID || '',
-  REWARDED: process.env.EXPO_PUBLIC_ADMOB_REWARDED_ID || '',
-  NATIVE: process.env.EXPO_PUBLIC_ADMOB_NATIVE_ID || '',
+  INTERSTITIAL: process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_ID || "",
+  BANNER: process.env.EXPO_PUBLIC_ADMOB_BANNER_ID || "",
+  REWARDED: process.env.EXPO_PUBLIC_ADMOB_REWARDED_ID || "",
+  NATIVE: process.env.EXPO_PUBLIC_ADMOB_NATIVE_ID || "",
 };
 
 // Check if ALL required production IDs are configured
@@ -43,14 +42,17 @@ const prodIdsConfigured =
   !!process.env.EXPO_PUBLIC_ADMOB_BANNER_ID &&
   !!process.env.EXPO_PUBLIC_ADMOB_REWARDED_ID;
 
-export const AD_UNIT_IDS =
-  IS_DEV || !prodIdsConfigured ? TEST_IDS : PROD_IDS;
+export const AD_UNIT_IDS = IS_DEV || !prodIdsConfigured ? TEST_IDS : PROD_IDS;
 
 // ─── AdMob App IDs (required in app.json) ───────────────────────────────────
 // Set YOUR real App IDs from https://admob.google.com
 export const ADMOB_APP_ID = {
-  ANDROID: process.env.EXPO_PUBLIC_ADMOB_ANDROID_APP_ID || 'ca-app-pub-3940256099942544~3347511713', // TEST
-  IOS: process.env.EXPO_PUBLIC_ADMOB_IOS_APP_ID || 'ca-app-pub-3940256099942544~1458002511',       // TEST
+  ANDROID:
+    process.env.EXPO_PUBLIC_ADMOB_ANDROID_APP_ID ||
+    "ca-app-pub-3940256099942544~3347511713", // TEST
+  IOS:
+    process.env.EXPO_PUBLIC_ADMOB_IOS_APP_ID ||
+    "ca-app-pub-3940256099942544~1458002511", // TEST
 };
 
 // ─── Frequency Capping Rules ─────────────────────────────────────────────────

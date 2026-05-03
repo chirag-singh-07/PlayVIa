@@ -1,29 +1,40 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import Animated, { FadeInUp } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../theme/ThemeProvider';
-import { colors } from '../../theme/colors';
-import { spacing } from '../../theme/spacing';
-import { typography } from '../../theme/typography';
-import { AuthInput } from '../../components/auth/AuthInput';
-import { AuthButton } from '../../components/auth/AuthButton';
-import { PasswordStrength } from '../../components/auth/PasswordStrength';
-import { useFormValidation } from '../../hooks/useFormValidation';
-import { ScreenWrapper } from '../../components/ScreenWrapper';
-import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton';
-import { SocialDivider } from '../../components/auth/SocialDivider';
-import { useGoogleAuth } from '../../hooks/useGoogleAuth';
-import { useAuth } from '../../context/AuthContext';
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+} from "react-native";
+import Animated, { FadeInUp } from "react-native-reanimated";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "../../theme/ThemeProvider";
+import { colors } from "../../theme/colors";
+import { spacing } from "../../theme/spacing";
+import { typography } from "../../theme/typography";
+import { AuthInput } from "../../components/auth/AuthInput";
+import { AuthButton } from "../../components/auth/AuthButton";
+import { PasswordStrength } from "../../components/auth/PasswordStrength";
+import { useFormValidation } from "../../hooks/useFormValidation";
+import { ScreenWrapper } from "../../components/ScreenWrapper";
+// import { GoogleSignInButton } from "../../components/auth/GoogleSignInButton";
+// import { SocialDivider } from "../../components/auth/SocialDivider";
+import { useGoogleAuth } from "../../hooks/useGoogleAuth";
+import { useAuth } from "../../context/AuthContext";
 
-import { authService } from '../../services/authService';
-import { showAuthError } from '../../utils/errorHandler';
-import { Alert } from 'react-native';
+import { authService } from "../../services/authService";
+import { showAuthError } from "../../utils/errorHandler";
+import { Alert } from "react-native";
 
 export const RegisterScreen: React.FC<any> = ({ navigation }) => {
   const { theme } = useTheme();
-  const themeColors = theme === 'dark' ? colors.dark : colors.light;
-  const { validateEmail, validatePhone, validateUsername, calculatePasswordScore } = useFormValidation();
+  const themeColors = theme === "dark" ? colors.dark : colors.light;
+  const {
+    validateEmail,
+    validatePhone,
+    validateUsername,
+    calculatePasswordScore,
+  } = useFormValidation();
   const { googleLogin: authGoogleLogin } = useAuth();
 
   const handleGoogleSuccess = async (accessToken: string) => {
@@ -39,20 +50,20 @@ export const RegisterScreen: React.FC<any> = ({ navigation }) => {
   const { promptAsync } = useGoogleAuth(handleGoogleSuccess);
 
   const [formData, setFormData] = useState({
-    name: '',
-    username: '',
-    email: '',
-    phone: '',
-    password: '',
-    confirmPassword: '',
+    name: "",
+    username: "",
+    email: "",
+    phone: "",
+    password: "",
+    confirmPassword: "",
   });
 
   const [agreed, setAgreed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const passwordScore = calculatePasswordScore(formData.password);
-  
-  const isValid = 
+
+  const isValid =
     formData.name.length >= 2 &&
     validateUsername(formData.username) &&
     validateEmail(formData.email) &&
@@ -64,19 +75,40 @@ export const RegisterScreen: React.FC<any> = ({ navigation }) => {
   const handleRegister = async () => {
     if (!isValid) {
       if (formData.name.length < 2) {
-        Alert.alert('👤 Name Too Short', 'Please enter your full name (at least 2 characters).');
+        Alert.alert(
+          "👤 Name Too Short",
+          "Please enter your full name (at least 2 characters).",
+        );
       } else if (!validateUsername(formData.username)) {
-        Alert.alert('👤 Invalid Username', 'Username must be 3–20 characters and can only contain letters, numbers, and underscores (_).');
+        Alert.alert(
+          "👤 Invalid Username",
+          "Username must be 3–20 characters and can only contain letters, numbers, and underscores (_).",
+        );
       } else if (!validateEmail(formData.email)) {
-        Alert.alert('📧 Invalid Email', 'Please enter a valid email address (e.g. you@gmail.com).');
+        Alert.alert(
+          "📧 Invalid Email",
+          "Please enter a valid email address (e.g. you@gmail.com).",
+        );
       } else if (!validatePhone(formData.phone)) {
-        Alert.alert('📱 Invalid Phone', 'Please enter a valid 10-digit phone number.');
+        Alert.alert(
+          "📱 Invalid Phone",
+          "Please enter a valid 10-digit phone number.",
+        );
       } else if (passwordScore < 2) {
-        Alert.alert('🔐 Weak Password', 'Your password is too weak.\n\nTip: Use at least 8 characters with a mix of letters and numbers.');
+        Alert.alert(
+          "🔐 Weak Password",
+          "Your password is too weak.\n\nTip: Use at least 8 characters with a mix of letters and numbers.",
+        );
       } else if (formData.password !== formData.confirmPassword) {
-        Alert.alert('🔐 Passwords Don\'t Match', 'The passwords you entered don\'t match. Please re-enter them.');
+        Alert.alert(
+          "🔐 Passwords Don't Match",
+          "The passwords you entered don't match. Please re-enter them.",
+        );
       } else if (!agreed) {
-        Alert.alert('📋 Terms Required', 'Please agree to the Terms of Service and Privacy Policy to continue.');
+        Alert.alert(
+          "📋 Terms Required",
+          "Please agree to the Terms of Service and Privacy Policy to continue.",
+        );
       }
       return;
     }
@@ -85,7 +117,7 @@ export const RegisterScreen: React.FC<any> = ({ navigation }) => {
     try {
       const response = await authService.register(formData);
       setIsLoading(false);
-      navigation.navigate('OTPVerification', {
+      navigation.navigate("OTPVerification", {
         email: formData.email,
         devOtp: response.devOtp,
       });
@@ -96,71 +128,100 @@ export const RegisterScreen: React.FC<any> = ({ navigation }) => {
   };
 
   const updateField = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   return (
     <ScreenWrapper useSafeArea withKeyboardAvoidView>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{top:10, bottom:10, left:10, right:10}}>
-          <Ionicons name="arrow-back" size={24} color={themeColors.textPrimary} />
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons
+            name="arrow-back"
+            size={24}
+            color={themeColors.textPrimary}
+          />
         </TouchableOpacity>
       </View>
 
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
         <Animated.View entering={FadeInUp.duration(600).delay(100)}>
-          <Text style={[styles.title, { color: themeColors.textPrimary }]}>Create Account 🎬</Text>
+          <Text style={[styles.title, { color: themeColors.textPrimary }]}>
+            Create Account 🎬
+          </Text>
           <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
             Join millions of viewers
           </Text>
         </Animated.View>
 
-        <Animated.View entering={FadeInUp.duration(600).delay(200)} style={styles.form}>
+        <Animated.View
+          entering={FadeInUp.duration(600).delay(200)}
+          style={styles.form}
+        >
           <AuthInput
             label="Full Name"
             icon="person-outline"
             value={formData.name}
-            onChangeText={(v) => updateField('name', v)}
-            error={formData.name.length > 0 && formData.name.length < 2 ? "Name too short" : undefined}
+            onChangeText={(v) => updateField("name", v)}
+            error={
+              formData.name.length > 0 && formData.name.length < 2
+                ? "Name too short"
+                : undefined
+            }
           />
 
           <AuthInput
             label="Username"
             icon="at-outline"
             value={formData.username}
-            onChangeText={(v) => updateField('username', v)}
+            onChangeText={(v) => updateField("username", v)}
             autoCapitalize="none"
-            error={formData.username.length > 0 && !validateUsername(formData.username) ? "3-20 chars (alphanumeric/_)" : undefined}
+            error={
+              formData.username.length > 0 &&
+              !validateUsername(formData.username)
+                ? "3-20 chars (alphanumeric/_)"
+                : undefined
+            }
           />
 
           <AuthInput
             label="Email Address"
             icon="mail-outline"
             value={formData.email}
-            onChangeText={(v) => updateField('email', v)}
+            onChangeText={(v) => updateField("email", v)}
             keyboardType="email-address"
             autoCapitalize="none"
-            error={formData.email.length > 0 && !validateEmail(formData.email) ? "Invalid email address" : undefined}
+            error={
+              formData.email.length > 0 && !validateEmail(formData.email)
+                ? "Invalid email address"
+                : undefined
+            }
           />
 
           <AuthInput
             label="Phone Number"
             icon="call-outline"
             value={formData.phone}
-            onChangeText={(v) => updateField('phone', v)}
+            onChangeText={(v) => updateField("phone", v)}
             keyboardType="phone-pad"
             maxLength={10}
-            error={formData.phone.length > 0 && !validatePhone(formData.phone) ? "Enter 10 digit number" : undefined}
+            error={
+              formData.phone.length > 0 && !validatePhone(formData.phone)
+                ? "Enter 10 digit number"
+                : undefined
+            }
           />
 
           <AuthInput
             label="Password"
             icon="lock-closed-outline"
             value={formData.password}
-            onChangeText={(v) => updateField('password', v)}
+            onChangeText={(v) => updateField("password", v)}
             isPassword
           />
 
@@ -172,38 +233,55 @@ export const RegisterScreen: React.FC<any> = ({ navigation }) => {
             label="Confirm Password"
             icon="lock-closed-outline"
             value={formData.confirmPassword}
-            onChangeText={(v) => updateField('confirmPassword', v)}
+            onChangeText={(v) => updateField("confirmPassword", v)}
             isPassword
-            error={formData.confirmPassword && formData.password !== formData.confirmPassword ? "Passwords do not match" : undefined}
+            error={
+              formData.confirmPassword &&
+              formData.password !== formData.confirmPassword
+                ? "Passwords do not match"
+                : undefined
+            }
           />
 
-          <TouchableOpacity style={styles.checkboxContainer} onPress={() => setAgreed(!agreed)}>
-            <Ionicons 
-              name={agreed ? "checkbox" : "square-outline"} 
-              size={24} 
-              color={agreed ? colors.primary : themeColors.textSecondary} 
+          <TouchableOpacity
+            style={styles.checkboxContainer}
+            onPress={() => setAgreed(!agreed)}
+          >
+            <Ionicons
+              name={agreed ? "checkbox" : "square-outline"}
+              size={24}
+              color={agreed ? colors.primary : themeColors.textSecondary}
             />
-            <Text style={[styles.checkboxText, { color: themeColors.textSecondary }]}>
+            <Text
+              style={[
+                styles.checkboxText,
+                { color: themeColors.textSecondary },
+              ]}
+            >
               I agree to Terms of Service and Privacy Policy
             </Text>
           </TouchableOpacity>
 
-          <AuthButton 
-            title="Create Account" 
-            onPress={handleRegister} 
+          <AuthButton
+            title="Create Account"
+            onPress={handleRegister}
             isLoading={isLoading}
             disabled={!isValid}
           />
 
-          <SocialDivider />
-          <GoogleSignInButton onPress={() => promptAsync()} />
+          {/* <SocialDivider /> */}
+          {/* <GoogleSignInButton onPress={() => promptAsync()} /> */}
 
           <View style={styles.footer}>
-            <Text style={[styles.footerText, { color: themeColors.textSecondary }]}>
-              Already have an account?{' '}
+            <Text
+              style={[styles.footerText, { color: themeColors.textSecondary }]}
+            >
+              Already have an account?{" "}
             </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={[styles.footerLink, { color: colors.primary }]}>Login</Text>
+            <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+              <Text style={[styles.footerLink, { color: colors.primary }]}>
+                Login
+              </Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -231,11 +309,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   form: {
-    width: '100%',
+    width: "100%",
   },
   checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: spacing.xl,
   },
   checkboxText: {
@@ -244,8 +322,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     marginTop: spacing.xl,
   },
   footerText: {

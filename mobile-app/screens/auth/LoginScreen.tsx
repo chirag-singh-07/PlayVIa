@@ -1,30 +1,36 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import Animated, { FadeInUp } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../theme/ThemeProvider';
-import { colors } from '../../theme/colors';
-import { spacing } from '../../theme/spacing';
-import { typography } from '../../theme/typography';
-import { AuthInput } from '../../components/auth/AuthInput';
-import { AuthButton } from '../../components/auth/AuthButton';
-import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton';
-import { SocialDivider } from '../../components/auth/SocialDivider';
-// FIXED: replaced @react-native-google-signin/google-signin with 
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+} from "react-native";
+import Animated, { FadeInUp } from "react-native-reanimated";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "../../theme/ThemeProvider";
+import { colors } from "../../theme/colors";
+import { spacing } from "../../theme/spacing";
+import { typography } from "../../theme/typography";
+import { AuthInput } from "../../components/auth/AuthInput";
+import { AuthButton } from "../../components/auth/AuthButton";
+// import { GoogleSignInButton } from "../../components/auth/GoogleSignInButton";
+// import { SocialDivider } from "../../components/auth/SocialDivider";
+// FIXED: replaced @react-native-google-signin/google-signin with
 // expo-auth-session/providers/google
-import { useFormValidation } from '../../hooks/useFormValidation';
-import { useGoogleAuth } from '../../hooks/useGoogleAuth';
-import { ScreenWrapper } from '../../components/ScreenWrapper';
+import { useFormValidation } from "../../hooks/useFormValidation";
+import { useGoogleAuth } from "../../hooks/useGoogleAuth";
+import { ScreenWrapper } from "../../components/ScreenWrapper";
 
-import { useAuth } from '../../context/AuthContext';
-import { showAuthError } from '../../utils/errorHandler';
+import { useAuth } from "../../context/AuthContext";
+import { showAuthError } from "../../utils/errorHandler";
 
 export const LoginScreen: React.FC<any> = ({ navigation }) => {
   const { theme } = useTheme();
-  const themeColors = theme === 'dark' ? colors.dark : colors.light;
+  const themeColors = theme === "dark" ? colors.dark : colors.light;
   const { validateEmail } = useFormValidation();
   const { login: authLogin, googleLogin: authGoogleLogin } = useAuth();
-  
+
   const handleGoogleSuccess = async (accessToken: string) => {
     setIsLoading(true);
     try {
@@ -37,8 +43,8 @@ export const LoginScreen: React.FC<any> = ({ navigation }) => {
 
   const { promptAsync } = useGoogleAuth(handleGoogleSuccess);
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const isEmailValid = email.length > 0 ? validateEmail(email) : undefined;
@@ -47,9 +53,19 @@ export const LoginScreen: React.FC<any> = ({ navigation }) => {
   const handleLogin = async () => {
     if (!isFormValid) {
       if (!validateEmail(email)) {
-        showAuthError({ response: { status: 400, data: { message: 'Please enter a valid email address.' } } });
+        showAuthError({
+          response: {
+            status: 400,
+            data: { message: "Please enter a valid email address." },
+          },
+        });
       } else if (password.length < 6) {
-        showAuthError({ response: { status: 400, data: { message: 'Password must be at least 6 characters.' } } });
+        showAuthError({
+          response: {
+            status: 400,
+            data: { message: "Password must be at least 6 characters." },
+          },
+        });
       }
       return;
     }
@@ -65,17 +81,21 @@ export const LoginScreen: React.FC<any> = ({ navigation }) => {
 
   return (
     <ScreenWrapper useSafeArea withKeyboardAvoidView>
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
         <Animated.View entering={FadeInUp.duration(400)} style={styles.header}>
           <Ionicons name="logo-youtube" size={40} color={colors.primary} />
-          <Text style={[styles.appName, { color: themeColors.textPrimary }]}>VidPlay</Text>
+          <Text style={[styles.appName, { color: themeColors.textPrimary }]}>
+            VidPlay
+          </Text>
         </Animated.View>
 
         <Animated.View entering={FadeInUp.duration(400)}>
-          <Text style={[styles.title, { color: themeColors.textPrimary }]}>Welcome Back 👋</Text>
+          <Text style={[styles.title, { color: themeColors.textPrimary }]}>
+            Welcome Back 👋
+          </Text>
           <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
             Login to continue watching
           </Text>
@@ -90,7 +110,11 @@ export const LoginScreen: React.FC<any> = ({ navigation }) => {
             keyboardType="email-address"
             autoCapitalize="none"
             isValid={isEmailValid}
-            error={email.length > 0 && !isEmailValid ? "Please enter a valid email" : undefined}
+            error={
+              email.length > 0 && !isEmailValid
+                ? "Please enter a valid email"
+                : undefined
+            }
           />
 
           <AuthInput
@@ -101,29 +125,35 @@ export const LoginScreen: React.FC<any> = ({ navigation }) => {
             isPassword
           />
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.forgotBtn}
-            onPress={() => navigation.navigate('ForgotPassword')}
+            onPress={() => navigation.navigate("ForgotPassword")}
           >
-            <Text style={[styles.forgotText, { color: colors.primary }]}>Forgot Password?</Text>
+            <Text style={[styles.forgotText, { color: colors.primary }]}>
+              Forgot Password?
+            </Text>
           </TouchableOpacity>
 
-          <AuthButton 
-            title="Login" 
-            onPress={handleLogin} 
+          <AuthButton
+            title="Login"
+            onPress={handleLogin}
             isLoading={isLoading}
             disabled={!isFormValid}
           />
 
-          <SocialDivider />
-          <GoogleSignInButton onPress={() => promptAsync()} />
+          {/* <SocialDivider /> */}
+          {/* <GoogleSignInButton onPress={() => promptAsync()} /> */}
 
           <View style={styles.footer}>
-            <Text style={[styles.footerText, { color: themeColors.textSecondary }]}>
-              Don't have an account?{' '}
+            <Text
+              style={[styles.footerText, { color: themeColors.textSecondary }]}
+            >
+              Don't have an account?{" "}
             </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={[styles.footerLink, { color: colors.primary }]}>Register</Text>
+            <TouchableOpacity onPress={() => navigation.navigate("Register")}>
+              <Text style={[styles.footerLink, { color: colors.primary }]}>
+                Register
+              </Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -136,11 +166,11 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     padding: spacing.screenPadding,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: spacing.xl,
   },
   appName: {
@@ -156,18 +186,18 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   form: {
-    width: '100%',
+    width: "100%",
   },
   forgotBtn: {
-    alignSelf: 'flex-end',
+    alignSelf: "flex-end",
     marginBottom: spacing.xl,
   },
   forgotText: {
     ...typography.link,
   },
   footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     marginTop: spacing.xl,
   },
   footerText: {

@@ -5,9 +5,13 @@ import { IconButton } from './IconButton';
 import { Avatar } from './Avatar';
 import { colors, typography } from '../theme';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../context/AuthContext';
 
 export const Header: React.FC = () => {
   const navigation = useNavigation<any>();
+  const { user } = useAuth();
+
+  const avatarUri = user?.avatar || "https://icon-library.com/images/anonymous-avatar-icon/anonymous-avatar-icon-25.jpg";
 
   return (
     <View style={styles.container}>
@@ -23,7 +27,7 @@ export const Header: React.FC = () => {
         <IconButton icon="notifications-outline" onPress={() => navigation.navigate('Notifications')} />
         <IconButton icon="search-outline" onPress={() => navigation.navigate('Search')} />
         <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
-          <Avatar uri="https://icon-library.com/images/anonymous-avatar-icon/anonymous-avatar-icon-25.jpg" size={30} style={styles.avatar} />
+          <Avatar uri={avatarUri} size={30} style={styles.avatar} />
         </TouchableOpacity>
       </View>
     </View>

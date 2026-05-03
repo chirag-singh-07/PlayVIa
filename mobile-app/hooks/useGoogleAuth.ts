@@ -7,20 +7,20 @@ WebBrowser.maybeCompleteAuthSession();
 
 export const useGoogleAuth = (onSuccess?: (accessToken: string) => void) => {
   /**
-   * Only pass webClientId (= web OAuth client from Google Cloud Console).
-   * Do NOT pass androidClientId here — when androidClientId is given,
-   * expo-auth-session sends "com.rudnex.app:/oauth2redirect/google" as
-   * the redirect_uri which Google rejects with Error 400: invalid_request.
-   *
-   * Using only webClientId routes the OAuth flow through Expo's auth proxy:
-   *   https://auth.expo.io/@growthnations-developer/playvia
-   * which IS registered in Google Cloud Console → no more 400/401 errors.
+   * We provide webClientId, androidClientId, and iosClientId to support
+   * Google authentication across all platforms.
+   * 
+   * On Android/iOS, this will use the native redirect URIs:
+   * Android: com.rudnex.app:/oauth2redirect/google
+   * iOS: com.rudnex.app:/oauth2redirect/google (or similar based on bundle ID)
+   * 
+   * These MUST be registered in the Google Cloud Console for the respective
+   * OAuth 2.0 Client IDs.
    */
   const [request, response, promptAsync] = Google.useAuthRequest({
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    redirectUri: makeRedirectUri({
-      scheme: "playvia",
-    }),
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
   });
 
   useEffect(() => {

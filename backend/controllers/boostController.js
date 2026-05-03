@@ -5,11 +5,27 @@ const Boost = require('../models/Boost');
 const Video = require('../models/Video');
 const Setting = require('../models/Setting');
 
-// Initialize Razorpay
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+// Initialize Razorpay lazily to prevent crashing on startup if env vars are missing
+let razorpayInstance = null;
+
+const getRazorpay = () => {
+  if (razorpayInstance) return razorpayInstance;
+
+  const key_id = process.env.RAZORPAY_KEY_ID;
+  const key_secret = process.env.RAZORPAY_KEY_SECRET;
+
+  if (!key_id || !key_secret || key_id === 'your_key_id') {
+    console.error('❌ Razorpay keys are missing or invalid in environment variables.');
+    return null;
+  }
+
+  razorpayInstance = new Razorpay({
+    key_id,
+    key_secret,
+  });
+
+  return razorpayInstance;
+};
 
 // @desc    Create a Razorpay order for boosting a video
 // @route   POST /api/boost/create-order
@@ -48,6 +64,12 @@ const createBoostOrder = asyncHandler(async (req, res) => {
     receipt: `receipt_boost_${videoId}_${Date.now()}`,
   };
 
+  const razorpay = getRazorpay();
+  if (!razorpay) {
+    res.status(500);
+    throw new Error('Razorpay is not configured on this server. Please contact admin.');
+  }
+
   try {
     const order = await razorpay.orders.create(options);
     res.status(200).json({
@@ -56,6 +78,7 @@ const createBoostOrder = asyncHandler(async (req, res) => {
       currency: order.currency,
     });
   } catch (error) {
+    console.error('Razorpay Error:', error);
     res.status(500);
     throw new Error('Error creating Razorpay order');
   }
@@ -73,9 +96,15 @@ const verifyBoostPayment = asyncHandler(async (req, res) => {
     duration
   } = req.body;
 
+  const key_secret = process.env.RAZORPAY_KEY_SECRET;
+  if (!key_secret || key_secret === 'your_key_secret') {
+    res.status(500);
+    throw new Error('Razorpay secret is missing or invalid.');
+  }
+
   const sign = razorpay_order_id + "|" + razorpay_payment_id;
   const expectedSign = crypto
-    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+    .createHmac("sha256", key_secret)
     .update(sign.toString())
     .digest("hex");
 

@@ -9,24 +9,68 @@ const Comment = require('../models/Comment');
 const CreatorApplication = require('../models/CreatorApplication');
 const Channel = require('../models/Channel');
 const Payout = require('../models/Payout');
+const Banner = require('../models/Banner');
+const Ad = require('../models/Ad');
+const AppVersion = require('../models/AppVersion');
+const AdminLog = require('../models/AdminLog');
+const Boost = require('../models/Boost');
 const { cloudinary } = require('../config/cloudinary');
 
 // @desc    Get admin dashboard stats
-// @route   GET /api/admin/stats
-// @access  Private/Admin
 const getAdminStats = asyncHandler(async (req, res) => {
   const totalUsers = await User.countDocuments();
   const totalVideos = await Video.countDocuments();
   
-  // Mocking some data for now that we don't track specifically yet
-  const stats = {
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  // Views Today
+  const videosUpdatedToday = await Video.find({ updatedAt: { $gte: startOfDay } });
+  const viewsTodayCount = videosUpdatedToday.reduce((acc, v) => acc + (v.views || 0), 0);
+
+  // Monthly Revenue (from Boosts)
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthlyBoosts = await Boost.find({ createdAt: { $gte: startOfMonth } });
+  const monthlyRevenueTotal = monthlyBoosts.reduce((acc, b) => acc + b.amount, 0);
+
+  // Uploads Data (Last 14 days)
+  const fourteenDaysAgo = new Date();
+  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+  const uploads = await Video.aggregate([
+    { $match: { createdAt: { $gte: fourteenDaysAgo } } },
+    { $group: {
+        _id: { $dateToString: { format: "%d/%m", date: "$createdAt" } },
+        count: { $sum: 1 }
+    }},
+    { $sort: { "_id": 1 } }
+  ]);
+  const uploadsData = uploads.map(u => ({ day: u._id, uploads: u.count }));
+
+  // Revenue Data (Last 6 months)
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const revenue = await Boost.aggregate([
+    { $match: { createdAt: { $gte: sixMonthsAgo } } },
+    { $group: {
+        _id: { $dateToString: { format: "%b", date: "$createdAt" } },
+        total: { $sum: "$amount" }
+    }}
+  ]);
+  const revenueByMonth = revenue.map(r => ({ month: r._id, revenue: r.total }));
+
+  res.json({
     totalUsers,
     totalVideos,
-    viewsToday: '2.4M', // This should be calculated from a views tracking table
-    monthlyRevenue: '₹8,42,500', // This should be calculated from earnings
-  };
-
-  res.json(stats);
+    viewsToday: viewsTodayCount > 1000000 ? `${(viewsTodayCount / 1000000).toFixed(1)}M` : viewsTodayCount.toLocaleString('en-IN'),
+    monthlyRevenue: `₹${monthlyRevenueTotal.toLocaleString('en-IN')}`,
+    uploadsData,
+    revenueByMonth,
+    // Add mock DAU for now as we don't have a login session tracker yet
+    dauData: Array.from({ length: 30 }, (_, i) => ({
+      day: `${i+1}/5`,
+      users: 380000 + Math.floor(Math.random() * 50000)
+    }))
+  });
 });
 
 // @desc    Get recent videos
@@ -251,6 +295,7 @@ const updateSettings = asyncHandler(async (req, res) => {
   settings.monetization = req.body.monetization || settings.monetization;
   settings.email = req.body.email || settings.email;
   settings.security = req.body.security || settings.security;
+  settings.boost = req.body.boost || settings.boost;
 
   const updatedSettings = await settings.save();
   res.json(updatedSettings);
@@ -306,13 +351,50 @@ const updateCreatorApplication = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Get all channels
+// @desc    Get all channels with stats
 // @route   GET /api/admin/channels
 // @access  Private/Admin
 const getAllChannels = asyncHandler(async (req, res) => {
-  const channels = await Channel.find()
-    .populate('owner', 'username email avatar')
-    .sort('-subscribersCount');
+  const channels = await Channel.aggregate([
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'owner',
+        foreignField: '_id',
+        as: 'owner'
+      }
+    },
+    { $unwind: '$owner' },
+    {
+      $lookup: {
+        from: 'videos',
+        localField: '_id',
+        foreignField: 'channel',
+        as: 'videos'
+      }
+    },
+    {
+      $project: {
+        _id: 1,
+        name: 1,
+        description: 1,
+        avatar: 1,
+        banner: 1,
+        subscribers: 1,
+        subscribersCount: { $size: '$subscribers' },
+        owner: {
+          _id: 1,
+          username: 1,
+          email: 1,
+          avatar: 1
+        },
+        videoCount: { $size: '$videos' },
+        totalViews: { $sum: '$videos.views' },
+        createdAt: 1
+      }
+    },
+    { $sort: { subscribersCount: -1 } }
+  ]);
   res.json(channels);
 });
 
@@ -450,6 +532,97 @@ const updateWithdrawalStatus = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Get all banners
+// @route   GET /api/admin/banners
+// @access  Private/Admin
+const getBanners = asyncHandler(async (req, res) => {
+  const banners = await Banner.find().sort({ order: 1 });
+  res.json(banners);
+});
+
+// @desc    Add banner
+// @route   POST /api/admin/banners
+// @access  Private/Admin
+const addBanner = asyncHandler(async (req, res) => {
+  const banner = await Banner.create(req.body);
+  res.status(201).json(banner);
+});
+
+// @desc    Update banner
+// @route   PUT /api/admin/banners/:id
+// @access  Private/Admin
+const updateBanner = asyncHandler(async (req, res) => {
+  const banner = await Banner.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  res.json(banner);
+});
+
+// @desc    Delete banner
+// @route   DELETE /api/admin/banners/:id
+// @access  Private/Admin
+const deleteBanner = asyncHandler(async (req, res) => {
+  await Banner.findByIdAndDelete(req.params.id);
+  res.json({ message: 'Banner removed' });
+});
+
+// @desc    Get all ads
+// @route   GET /api/admin/ads
+// @access  Private/Admin
+const getAds = asyncHandler(async (req, res) => {
+  const ads = await Ad.find().sort({ createdAt: -1 });
+  res.json(ads);
+});
+
+// @desc    Add ad
+// @route   POST /api/admin/ads
+// @access  Private/Admin
+const addAd = asyncHandler(async (req, res) => {
+  const ad = await Ad.create(req.body);
+  res.status(201).json(ad);
+});
+
+// @desc    Update ad
+// @route   PUT /api/admin/ads/:id
+// @access  Private/Admin
+const updateAd = asyncHandler(async (req, res) => {
+  const ad = await Ad.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  res.json(ad);
+});
+
+// @desc    Delete ad
+// @route   DELETE /api/admin/ads/:id
+// @access  Private/Admin
+const deleteAd = asyncHandler(async (req, res) => {
+  await Ad.findByIdAndDelete(req.params.id);
+  res.json({ message: 'Ad removed' });
+});
+
+// @desc    Get all admin logs
+// @route   GET /api/admin/logs
+// @access  Private/Admin
+const getAdminLogs = asyncHandler(async (req, res) => {
+  const logs = await AdminLog.find()
+    .populate('admin', 'username email')
+    .sort({ createdAt: -1 })
+    .limit(100);
+  res.json(logs);
+});
+
+// @desc    Get all app versions
+// @route   GET /api/admin/app-versions
+// @access  Private/Admin
+const getAppVersions = asyncHandler(async (req, res) => {
+  const versions = await AppVersion.find().sort({ createdAt: -1 });
+  res.json(versions);
+});
+
+// @desc    Add app version
+// @route   POST /api/admin/app-versions
+// @access  Private/Admin
+const addAppVersion = asyncHandler(async (req, res) => {
+  const version = await AppVersion.create(req.body);
+  res.status(201).json(version);
+});
+
 module.exports = {
   getAdminStats,
   getRecentVideos,
@@ -479,4 +652,15 @@ module.exports = {
   getStorageStats,
   getWithdrawals,
   updateWithdrawalStatus,
+  getBanners,
+  addBanner,
+  updateBanner,
+  deleteBanner,
+  getAds,
+  addAd,
+  updateAd,
+  deleteAd,
+  getAdminLogs,
+  getAppVersions,
+  addAppVersion,
 };

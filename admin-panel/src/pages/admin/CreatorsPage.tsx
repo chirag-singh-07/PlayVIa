@@ -39,6 +39,10 @@ export default function CreatorsPage() {
   const verified = channels;
   const top = useMemo(() => [...verified].sort((a: any, b: any) => b.subscribersCount - a.subscribersCount).slice(0, 8), [verified]);
 
+  const totalSubs = verified.reduce((s: number, a: any) => s + (a.subscribersCount || 0), 0);
+  const totalVideos = verified.reduce((s: number, a: any) => s + (a.videoCount || 0), 0);
+  const totalViews = verified.reduce((s: number, a: any) => s + (a.totalViews || 0), 0);
+
   if (appsLoading || channelsLoading) {
     return (
       <div className="flex h-[400px] items-center justify-center">
@@ -49,67 +53,54 @@ export default function CreatorsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Creators</h1>
-        <p className="text-sm text-muted-foreground">{pending.length} pending applications • {verified.length} verified creators</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Creators</h1>
+          <p className="text-sm text-muted-foreground">{pending.length} pending applications • {verified.length} verified creators</p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4"><div className="text-xs text-muted-foreground">Pending</div><div className="text-2xl font-bold mt-1">{pending.length}</div></Card>
-        <Card className="p-4"><div className="text-xs text-muted-foreground">Verified</div><div className="text-2xl font-bold mt-1">{verified.length}</div></Card>
-        <Card className="p-4"><div className="text-xs text-muted-foreground">Total Subs</div><div className="text-2xl font-bold mt-1">{fmtCompact(verified.reduce((s: number, a: any) => s + (a.subscribersCount || 0), 0))}</div></Card>
-        <Card className="p-4"><div className="text-xs text-muted-foreground">Est. Payouts</div><div className="text-2xl font-bold mt-1">{fmtINR(verified.length * 12_400)}</div></Card>
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card className="p-4"><div className="text-xs text-muted-foreground">Pending</div><div className="text-2xl font-bold mt-1 text-warning">{pending.length}</div></Card>
+        <Card className="p-4"><div className="text-xs text-muted-foreground">Verified</div><div className="text-2xl font-bold mt-1 text-success">{verified.length}</div></Card>
+        <Card className="p-4"><div className="text-xs text-muted-foreground">Total Subs</div><div className="text-2xl font-bold mt-1">{fmtCompact(totalSubs)}</div></Card>
+        <Card className="p-4"><div className="text-xs text-muted-foreground">Total Videos</div><div className="text-2xl font-bold mt-1">{fmtCompact(totalVideos)}</div></Card>
+        <Card className="p-4"><div className="text-xs text-muted-foreground">Total Views</div><div className="text-2xl font-bold mt-1">{fmtCompact(totalViews)}</div></Card>
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
+        <TabsList className="bg-muted/50 p-1">
           <TabsTrigger value="applications">Applications ({pending.length})</TabsTrigger>
           <TabsTrigger value="verified">Verified ({verified.length})</TabsTrigger>
           <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
         </TabsList>
 
         <TabsContent value="applications" className="mt-4">
-          <Card>
+          <Card className="overflow-hidden border-none shadow-sm">
             <Table>
-              <TableHeader><TableRow>
+              <TableHeader className="bg-muted/30"><TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead className="hidden md:table-cell">Applied</TableHead>
                 <TableHead>Status</TableHead><TableHead className="text-right">Actions</TableHead>
               </TableRow></TableHeader>
               <TableBody>
                 {pending.map((a: any) => (
-                  <TableRow key={a._id}>
+                  <TableRow key={a._id} className="hover:bg-muted/20 transition-colors">
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <UserAvatar src={a.user?.avatar} name={a.user?.username} />
+                        <UserAvatar src={a.user?.avatar} name={a.user?.username || "Creator"} />
                         <div>
-                          <div className="font-medium">{a.user?.username}</div>
-                          <div className="text-xs text-muted-foreground">{a.user?.email}</div>
+                          <div className="font-medium">{a.user?.username || "Unknown"}</div>
+                          <div className="text-xs text-muted-foreground">{a.user?.email || "No email"}</div>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{fmtDate(a.createdAt)}</TableCell>
                     <TableCell><StatusBadge status={a.status} /></TableCell>
                     <TableCell className="text-right whitespace-nowrap">
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="text-success" 
-                        onClick={() => decideMutation.mutate({ id: a._id, status: "Approved" })}
-                        disabled={decideMutation.isPending}
-                      >
-                        <Check className="w-4 h-4" />
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="text-destructive" 
-                        onClick={() => decideMutation.mutate({ id: a._id, status: "Rejected" })}
-                        disabled={decideMutation.isPending}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => toast("Email sent to creator")}><Mail className="w-4 h-4" /></Button>
+                      <Button size="sm" variant="ghost" className="text-success h-8 w-8 p-0" onClick={() => decideMutation.mutate({ id: a._id, status: "Approved" })} disabled={decideMutation.isPending}><Check className="w-4 h-4" /></Button>
+                      <Button size="sm" variant="ghost" className="text-destructive h-8 w-8 p-0" onClick={() => decideMutation.mutate({ id: a._id, status: "Rejected" })} disabled={decideMutation.isPending}><X className="w-4 h-4" /></Button>
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => toast("Email sent")}><Mail className="w-4 h-4" /></Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -120,26 +111,28 @@ export default function CreatorsPage() {
         </TabsContent>
 
         <TabsContent value="verified" className="mt-4">
-          <Card>
+          <Card className="overflow-hidden border-none shadow-sm">
             <Table>
-              <TableHeader><TableRow>
+              <TableHeader className="bg-muted/30"><TableRow>
                 <TableHead>Creator</TableHead>
+                <TableHead className="text-right">Videos</TableHead>
+                <TableHead className="text-right">Total Views</TableHead>
                 <TableHead className="text-right">Subscribers</TableHead>
-                <TableHead className="text-right">Est. Revenue</TableHead>
-                <TableHead className="hidden md:table-cell">Joined</TableHead>
+                <TableHead className="hidden md:table-cell text-right">Joined</TableHead>
               </TableRow></TableHeader>
               <TableBody>
                 {verified.map((a: any) => (
-                  <TableRow key={a._id}>
+                  <TableRow key={a._id} className="hover:bg-muted/20 transition-colors">
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <UserAvatar src={a.owner?.avatar} name={a.owner?.username} />
-                        <div className="font-medium">{a.owner?.username}</div>
+                        <UserAvatar src={a.owner?.avatar || a.avatar} name={a.owner?.username || a.name || "Creator"} />
+                        <div className="font-medium">{a.owner?.username || a.name || "Unknown"}</div>
                       </div>
                     </TableCell>
+                    <TableCell className="text-right font-medium">{fmtCompact(a.videoCount || 0)}</TableCell>
+                    <TableCell className="text-right font-medium text-primary">{fmtCompact(a.totalViews || 0)}</TableCell>
                     <TableCell className="text-right font-semibold">{fmtCompact(a.subscribersCount)}</TableCell>
-                    <TableCell className="text-right font-semibold text-success">{fmtINR(a.subscribersCount * 0.4 | 0)}</TableCell>
-                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{fmtDate(a.createdAt)}</TableCell>
+                    <TableCell className="hidden md:table-cell text-right text-sm text-muted-foreground tabular-nums">{fmtDate(a.createdAt)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -149,14 +142,24 @@ export default function CreatorsPage() {
 
         <TabsContent value="leaderboard" className="mt-4">
           <Card className="p-6">
-            <div className="flex items-center gap-2 mb-4"><Trophy className="w-5 h-5 text-warning" /><h3 className="font-semibold">Top Creators by Subscribers</h3></div>
-            <div className="space-y-3">
+            <div className="flex items-center gap-2 mb-6"><Trophy className="w-5 h-5 text-warning" /><h3 className="font-semibold text-lg">Creator Rankings</h3></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {top.map((c: any, i: number) => (
-                <div key={c._id} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/40 transition-colors">
-                  <div className={`w-8 h-8 rounded-full grid place-items-center text-sm font-bold ${i === 0 ? "bg-warning/20 text-warning" : i < 3 ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>{i + 1}</div>
-                  <UserAvatar src={c.owner?.avatar} name={c.owner?.username} />
-                  <div className="flex-1 min-w-0"><div className="font-medium truncate">{c.owner?.username}</div><div className="text-xs text-muted-foreground">@{c.name}</div></div>
-                  <div className="text-right"><div className="font-bold">{fmtCompact(c.subscribersCount)}</div><div className="text-xs text-muted-foreground">subscribers</div></div>
+                <div key={c._id} className="flex items-center gap-4 p-4 rounded-xl border bg-card hover:bg-muted/40 transition-all group">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-sm ${i === 0 ? "bg-warning text-warning-foreground" : i < 3 ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>{i + 1}</div>
+                  <UserAvatar src={c.owner?.avatar || c.avatar} name={c.owner?.username || c.name} className="w-12 h-12" />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold group-hover:text-primary transition-colors">{c.owner?.username || c.name}</div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+                      <span className="flex items-center gap-1"><Loader2 className="w-3 h-3" /> {fmtCompact(c.videoCount)} videos</span>
+                      <span className="w-1 h-1 rounded-full bg-border"></span>
+                      <span>{fmtCompact(c.totalViews)} views</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-lg font-black tracking-tight">{fmtCompact(c.subscribersCount)}</div>
+                    <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Subs</div>
+                  </div>
                 </div>
               ))}
             </div>

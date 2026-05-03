@@ -141,12 +141,59 @@ export const adminService = {
   },
 
   updateWithdrawalStatus: async (id: string, status: string) => {
-    const response = await api.put(`/admin/withdrawals/${id}`, { status });
-    return response.data;
+    const { data } = await api.put(`/admin/withdrawals/${id}`, { status });
+    return data;
   },
 
-  getBoosts: async () => {
-    const response = await api.get('/boost/all');
-    return response.data;
-  }
+  // Banners
+  getBanners: async () => {
+    const { data } = await api.get("/admin/banners");
+    return data;
+  },
+  addBanner: async (banner: any) => {
+    const { data } = await api.post("/admin/banners", banner);
+    return data;
+  },
+  updateBanner: async (id: string, banner: any) => {
+    const { data } = await api.put(`/admin/banners/${id}`, banner);
+    return data;
+  },
+  deleteBanner: async (id: string) => {
+    const { data } = await api.delete(`/admin/banners/${id}`);
+    return data;
+  },
+
+  // Ads
+  getAds: async () => {
+    const { data } = await api.get("/admin/ads");
+    return data;
+  },
+  addAd: async (ad: any) => {
+    const { data } = await api.post("/admin/ads", ad);
+    return data;
+  },
+  updateAd: async (id: string, ad: any) => {
+    const { data } = await api.put(`/admin/ads/${id}`, ad);
+    return data;
+  },
+  deleteAd: async (id: string) => {
+    const { data } = await api.delete(`/admin/ads/${id}`);
+    return data;
+  },
+
+  // Logs
+  getLogs: async () => {
+    const { data } = await api.get("/admin/logs");
+    return data;
+  },
+
+  // App Versions
+  getAppVersions: async () => {
+    const { data } = await api.get("/admin/app-versions");
+    return data;
+  },
+  addAppVersion: async (version: any) => {
+    const { data } = await api.post("/admin/app-versions", version);
+    return data;
+  },
 };

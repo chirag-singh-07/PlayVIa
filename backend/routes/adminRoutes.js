@@ -29,6 +29,17 @@ const {
   getWithdrawals,
   updateWithdrawalStatus,
   uploadVideoByAdmin,
+  getBanners,
+  addBanner,
+  updateBanner,
+  deleteBanner,
+  getAds,
+  addAd,
+  updateAd,
+  deleteAd,
+  getAdminLogs,
+  getAppVersions,
+  addAppVersion,
 } = require('../controllers/adminController');
 const { protect, admin } = require('../middleware/authMiddleware');
 const { upload } = require('../config/cloudinary');
@@ -71,5 +82,20 @@ router.get('/storage', protect, admin, getStorageStats);
 
 router.get('/withdrawals', protect, admin, getWithdrawals);
 router.put('/withdrawals/:id', protect, admin, updateWithdrawalStatus);
+
+router.get('/banners', protect, admin, getBanners);
+router.post('/banners', protect, admin, addBanner);
+router.put('/banners/:id', protect, admin, updateBanner);
+router.delete('/banners/:id', protect, admin, deleteBanner);
+
+router.get('/ads', protect, admin, getAds);
+router.post('/ads', protect, admin, addAd);
+router.put('/ads/:id', protect, admin, updateAd);
+router.delete('/ads/:id', protect, admin, deleteAd);
+
+router.get('/logs', protect, admin, getAdminLogs);
+
+router.get('/app-versions', protect, admin, getAppVersions);
+router.post('/app-versions', protect, admin, addAppVersion);
 
 module.exports = router;

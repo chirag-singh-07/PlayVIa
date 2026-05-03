@@ -9,8 +9,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
 import {
-  dauData, trafficSources,
-  uploadsData, revenueByMonth, fmtCompact, fmtDate, fmtINR,
+  trafficSources, fmtCompact, fmtDate, fmtINR,
 } from "@/lib/adminMock";
 import { adminService } from "@/lib/adminService";
 
@@ -24,7 +23,15 @@ const tooltipStyle = {
 };
 
 export default function DashboardPage() {
-  const { data: stats = { totalUsers: 0, totalVideos: 0, viewsToday: "0", monthlyRevenue: "₹0" }, isLoading: statsLoading } = useQuery({
+  const { data: stats = { 
+    totalUsers: 0, 
+    totalVideos: 0, 
+    viewsToday: "0", 
+    monthlyRevenue: "₹0",
+    dauData: [],
+    uploadsData: [],
+    revenueByMonth: []
+  }, isLoading: statsLoading } = useQuery({
     queryKey: ["admin-stats"],
     queryFn: adminService.getStats,
   });
@@ -79,7 +86,7 @@ export default function DashboardPage() {
               <p className="text-xs text-muted-foreground mt-0.5">Last 30 days (Mixed Data)</p>
             </div>
             <div className="text-right">
-              <div className="text-2xl font-extrabold">{fmtCompact(dauData[dauData.length - 1].users)}</div>
+              <div className="text-2xl font-extrabold">{stats.dauData.length > 0 ? fmtCompact(stats.dauData[stats.dauData.length - 1].users) : "0"}</div>
               <div className="text-xs text-success font-semibold flex items-center gap-1 justify-end">
                 <ArrowUpRight className="w-3 h-3" /> +12.4%
               </div>
@@ -87,7 +94,7 @@ export default function DashboardPage() {
           </div>
           <div className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={dauData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+              <LineChart data={stats.dauData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="dauLine" x1="0" y1="0" x2="1" y2="0">
                     <stop offset="0%" stopColor="hsl(var(--primary))" />
@@ -140,7 +147,7 @@ export default function DashboardPage() {
           </div>
           <div className="h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={uploadsData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+              <BarChart data={stats.uploadsData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                 <XAxis dataKey="day" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
@@ -157,7 +164,7 @@ export default function DashboardPage() {
           </div>
           <div className="h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={revenueByMonth} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+              <BarChart data={stats.revenueByMonth} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="revBar" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="hsl(var(--primary))" />

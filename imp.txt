@@ -1,81 +1,31 @@
-🎉 **Your request is submitted successfully!**
+Hey Ankur
 
-It says **"There is a pending request for resetting the upload key of this app"** ✅
+I Done the Deveolpmenet of Backend, Frontend and Admin Panel and also you 
+can start the monetization now and marketing of your platform so they will start
+pushing the content on the platform then we will work on the algorithm.
 
----
+Now Please check the Health and if any bug is there please let me know 
 
-**What happens next:**
-
-| Timeline | Action |
-|---|---|
-| Now | Request submitted ✅ |
-| 1-2 business days | Google reviews and approves |
-| After approval | You upload new AAB with new keystore |
-
----
-
-**While waiting for Google — do these things:**
-
-**Build your production AAB now:**
-```bash
-npx eas build -p android --profile production
-```
-
-**Save your keystore password safely** — you'll need it. Check EAS for it:
-```bash
-npx eas credentials
-```
-
-**Save these details somewhere safe:**
-```
-Keystore file: @growthnations-developer__playvia.jks
-Alias: f4b1a24ee376aa688bb33fdbbf3b04bc
-Location: mobile-app folder
-```
-
----
-
-**Once Google approves (1-2 days):**
-1. Go back to App Integrity page
-2. Upload your new AAB
-3. Your app is updated on Play Store ✅
-
----
-
-**Now let's focus on building your app!**
-
-Want to start the APK preview build to test your UI while waiting?
-```bash
-npx eas build -p android --profile preview
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Action plan right now:
-Build your production AAB today:
-bashnpx eas build -p android --profile production
-On April 27 — upload the AAB to Play Store:
-
-Go to Play Console
-Production → Create new release
-Upload your AAB
-Submit ✅
-
-
-Login URL: http://localhost:5173/admin/login
+Login URL: http://playvia.in/admin/login
 Email:     admin@playvia.app
 Password:  adminpassword123
+
+create website link 
+https://creators.playvia.in
+
+Main Website Link : 
+https://playvia.in
+
+Backend Link : https://playvia.onrender.com
+
+
+Note : As you said when You Need the google ads on the Mobile Apps , The Play store app 
+will charge you 5% for the ads and the Play store will also take 5% for the revenue of the app . so total 
+You will be left with the 90% of the revenue . which is more than enough for you to make 
+good profit and also i added the signin or signup with google on the creators website or dashboard 
+so it will be easy for the creators to login or signup in the platform and start posting videos. 
+and also i added the video or shorts boost feature on the creators website or dashboard 
+so it will be easy for the creators to boost their videos or shorts and increase their views and engagement. 
+and that price is set on the admin panel so you can change it anytime. 
 
 

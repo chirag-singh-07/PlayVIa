@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,45 +7,97 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import { generateBanners, fmtDate, type BannerRecord } from "@/lib/adminMock";
-import { Plus, ChevronUp, ChevronDown, Trash2, Image as ImageIcon, Pencil } from "lucide-react";
+import { fmtDate } from "@/lib/adminMock";
+import { adminService } from "@/lib/adminService";
+import { Plus, ChevronUp, ChevronDown, Trash2, Image as ImageIcon, Pencil, Loader2, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 
 export default function BannersPage() {
-  const [list, setList] = useState<BannerRecord[]>(() => generateBanners());
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<BannerRecord | null>(null);
-  const [form, setForm] = useState({ title: "", link: "", position: "Home Top" as BannerRecord["position"], startDate: "", endDate: "", active: true });
+  const [editing, setEditing] = useState<any | null>(null);
+  const [form, setForm] = useState({ 
+    title: "", 
+    link: "", 
+    imageUrl: "",
+    position: "home_top", 
+    startDate: "", 
+    endDate: "", 
+    active: true,
+    order: 0
+  });
 
-  function openNew() { setEditing(null); setForm({ title: "", link: "", position: "Home Top", startDate: "", endDate: "", active: true }); setOpen(true); }
-  function openEdit(b: BannerRecord) {
+  const { data: banners = [], isLoading } = useQuery({
+    queryKey: ["admin-banners"],
+    queryFn: adminService.getBanners,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (editing) {
+        return adminService.updateBanner(editing._id, data);
+      } else {
+        return adminService.addBanner(data);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-banners"] });
+      toast.success(editing ? "Banner updated" : "Banner created");
+      setOpen(false);
+    },
+    onError: () => toast.error("Failed to save banner")
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: adminService.deleteBanner,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-banners"] });
+      toast.success("Banner deleted");
+    },
+    onError: () => toast.error("Failed to delete banner")
+  });
+
+  function openNew() { 
+    setEditing(null); 
+    setForm({ 
+      title: "", 
+      link: "", 
+      imageUrl: "",
+      position: "home_top", 
+      startDate: new Date().toISOString().split("T")[0], 
+      endDate: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0], 
+      active: true,
+      order: banners.length + 1
+    }); 
+    setOpen(true); 
+  }
+
+  function openEdit(b: any) {
     setEditing(b);
-    setForm({ title: b.title, link: b.link, position: b.position, startDate: b.startDate.slice(0, 10), endDate: b.endDate.slice(0, 10), active: b.active });
+    setForm({ 
+      title: b.title, 
+      link: b.link, 
+      imageUrl: b.imageUrl || "",
+      position: b.position, 
+      startDate: b.startDate?.slice(0, 10) || "", 
+      endDate: b.endDate?.slice(0, 10) || "", 
+      active: b.active,
+      order: b.order
+    });
     setOpen(true);
   }
-  function save() {
+
+  function handleSave() {
     if (!form.title.trim()) { toast.error("Title required"); return; }
-    if (editing) {
-      setList((p) => p.map((x) => x.id === editing.id ? { ...x, ...form, startDate: form.startDate || x.startDate, endDate: form.endDate || x.endDate } : x));
-      toast.success("Banner updated");
-    } else {
-      setList((p) => [...p, {
-        id: `bnr_${Date.now()}`, title: form.title, link: form.link, position: form.position,
-        startDate: form.startDate || new Date().toISOString(),
-        endDate: form.endDate || new Date(Date.now() + 30 * 86400000).toISOString(),
-        active: form.active, order: p.length + 1, gradient: "from-red-500 to-orange-500", clicks: 0,
-      }]);
-      toast.success("Banner created");
-    }
-    setOpen(false);
+    saveMutation.mutate(form);
   }
-  function move(id: string, dir: -1 | 1) {
-    setList((p) => {
-      const i = p.findIndex((x) => x.id === id); const j = i + dir;
-      if (j < 0 || j >= p.length) return p;
-      const copy = [...p]; [copy[i], copy[j]] = [copy[j], copy[i]];
-      return copy.map((x, idx) => ({ ...x, order: idx + 1 }));
-    });
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[400px] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (
@@ -55,62 +108,116 @@ export default function BannersPage() {
           <p className="text-sm text-muted-foreground">Promotional banners across home and player screens</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button onClick={openNew} className="gap-2"><Plus className="w-4 h-4" />Add Banner</Button></DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>{editing ? "Edit banner" : "New banner"}</DialogTitle></DialogHeader>
-            <div className="space-y-3 py-2">
-              <div><Label>Title</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
-              <div><Label>Link URL</Label><Input value={form.link} onChange={(e) => setForm({ ...form, link: e.target.value })} placeholder="/category/sports" /></div>
-              <div><Label>Position</Label>
-                <Select value={form.position} onValueChange={(v) => setForm({ ...form, position: v as BannerRecord["position"] })}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Home Top">Home Top</SelectItem>
-                    <SelectItem value="Home Middle">Home Middle</SelectItem>
-                    <SelectItem value="Player">Player</SelectItem>
-                  </SelectContent>
-                </Select>
+          <DialogTrigger asChild><Button onClick={openNew} className="gap-2 shadow-glow"><Plus className="w-4 h-4" />Add Banner</Button></DialogTrigger>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader><DialogTitle>{editing ? "Edit Banner" : "New Banner"}</DialogTitle></DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="grid gap-2">
+                <Label>Title</Label>
+                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. IPL 2024 Live" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>Start date</Label><Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} /></div>
-                <div><Label>End date</Label><Input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>Position</Label>
+                  <Select value={form.position} onValueChange={(v) => setForm({ ...form, position: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="home_top">Home Top</SelectItem>
+                      <SelectItem value="home_middle">Home Middle</SelectItem>
+                      <SelectItem value="player_bottom">Player Bottom</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Display Order</Label>
+                  <Input type="number" value={form.order} onChange={(e) => setForm({ ...form, order: +e.target.value })} />
+                </div>
               </div>
-              <div className="flex items-center justify-between rounded-md border p-3">
-                <div><Label className="cursor-pointer">Active</Label><p className="text-xs text-muted-foreground">Show banner in app</p></div>
+              <div className="grid gap-2">
+                <Label>Image URL</Label>
+                <div className="flex gap-2">
+                  <Input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://..." />
+                  <Button variant="outline" size="icon" className="shrink-0"><ImageIcon className="w-4 h-4" /></Button>
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label>Redirect Link</Label>
+                <div className="flex gap-2">
+                  <Input value={form.link} onChange={(e) => setForm({ ...form, link: e.target.value })} placeholder="/category/sports" />
+                  <Button variant="outline" size="icon" className="shrink-0"><LinkIcon className="w-4 h-4" /></Button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>Start Date</Label>
+                  <Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>End Date</Label>
+                  <Input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
+                </div>
+              </div>
+              <div className="flex items-center justify-between rounded-xl border bg-muted/30 p-4">
+                <div>
+                  <Label className="cursor-pointer text-base">Active Status</Label>
+                  <p className="text-xs text-muted-foreground">Toggle visibility in the app</p>
+                </div>
                 <Switch checked={form.active} onCheckedChange={(v) => setForm({ ...form, active: v })} />
               </div>
             </div>
-            <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={save}>{editing ? "Save" : "Create"}</Button></DialogFooter>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button onClick={handleSave} disabled={saveMutation.isPending}>
+                {saveMutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                {editing ? "Save Changes" : "Create Banner"}
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {list.map((b) => (
-          <Card key={b.id} className="overflow-hidden">
-            <div className={`aspect-[16/8] bg-gradient-to-br ${b.gradient} grid place-items-center text-primary-foreground p-4`}>
-              <div className="text-center"><ImageIcon className="w-7 h-7 mx-auto opacity-80" /><div className="font-bold mt-2 line-clamp-2">{b.title}</div></div>
-            </div>
-            <div className="p-4 space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-muted">{b.position}</span>
-                <span className={`text-xs font-semibold ${b.active ? "text-success" : "text-muted-foreground"}`}>{b.active ? "● Active" : "○ Inactive"}</span>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {banners.map((b: any) => (
+          <Card key={b._id} className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-muted/50 bg-card/50 backdrop-blur-sm">
+            <div className="aspect-[21/9] bg-muted relative overflow-hidden">
+              {b.imageUrl ? (
+                <img src={b.imageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-secondary/20">
+                  <ImageIcon className="w-12 h-12 text-muted-foreground/30" />
+                </div>
+              )}
+              <div className="absolute top-2 right-2 flex gap-1 translate-y-[-10px] opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all">
+                <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full" onClick={() => openEdit(b)}><Pencil className="w-3.5 h-3.5" /></Button>
+                <Button size="icon" variant="destructive" className="h-8 w-8 rounded-full" onClick={() => deleteMutation.mutate(b._id)}><Trash2 className="w-3.5 h-3.5" /></Button>
               </div>
-              <div className="text-xs text-muted-foreground">→ {b.link}</div>
-              <div className="text-xs text-muted-foreground">{fmtDate(b.startDate)} – {fmtDate(b.endDate)} • {b.clicks.toLocaleString("en-IN")} clicks</div>
-              <div className="flex items-center justify-between pt-2 border-t">
-                <div className="flex gap-1">
-                  <Button size="sm" variant="ghost" onClick={() => move(b.id, -1)}><ChevronUp className="w-4 h-4" /></Button>
-                  <Button size="sm" variant="ghost" onClick={() => move(b.id, 1)}><ChevronDown className="w-4 h-4" /></Button>
-                </div>
-                <div>
-                  <Button size="sm" variant="ghost" onClick={() => openEdit(b)}><Pencil className="w-4 h-4" /></Button>
-                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => { setList((p) => p.filter((x) => x.id !== b.id)); toast.success("Deleted"); }}><Trash2 className="w-4 h-4" /></Button>
-                </div>
+              <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold bg-black/60 text-white backdrop-blur-md border border-white/10 uppercase tracking-wider">
+                {b.position.replace("_", " ")}
+              </div>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="font-bold line-clamp-1 group-hover:text-primary transition-colors">{b.title}</h3>
+                <div className={`h-2 w-2 rounded-full shrink-0 mt-1.5 ${b.active ? "bg-success shadow-[0_0_8px_hsl(var(--success))]" : "bg-muted-foreground"}`} />
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <LinkIcon className="w-3 h-3" />
+                <span className="truncate">{b.link}</span>
+              </div>
+              <div className="pt-2 flex items-center justify-between text-[11px] text-muted-foreground border-t border-muted/50">
+                <span className="font-medium">{fmtDate(b.startDate)} - {fmtDate(b.endDate)}</span>
+                <span className="font-bold text-foreground">Order: {b.order}</span>
               </div>
             </div>
           </Card>
         ))}
+        {banners.length === 0 && (
+          <div className="col-span-full py-20 flex flex-col items-center justify-center text-muted-foreground bg-muted/20 rounded-3xl border-2 border-dashed border-muted">
+            <ImageIcon className="w-12 h-12 mb-4 opacity-20" />
+            <p className="font-medium text-lg">No banners found</p>
+            <Button variant="ghost" className="mt-2" onClick={openNew}>Create your first banner</Button>
+          </div>
+        )}
       </div>
     </div>
   );

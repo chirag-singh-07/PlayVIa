@@ -86,5 +86,38 @@ export function useCreatePayout() {
   });
 }
 
+export function useMyBoosts() {
+  return useQuery({
+    queryKey: ["my-boosts"],
+    queryFn: async () => {
+      const response = await api.get("/boost/my-boosts");
+      return response.data;
+    },
+  });
+}
+
+export function useCreateBoostOrder() {
+  return useMutation({
+    mutationFn: async (data: { videoId: string; duration: number }) => {
+      const response = await api.post("/boost/create-order", data);
+      return response.data;
+    },
+  });
+}
+
+export function useVerifyBoost() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: any) => {
+      const response = await api.post("/boost/verify", data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["my-boosts"] });
+      queryClient.invalidateQueries({ queryKey: ["creator-videos"] });
+    },
+  });
+}
+
 
 

@@ -65,6 +65,15 @@ const videoSchema = new mongoose.Schema(
         ref: 'User',
       },
     ],
+    isBoosted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    boostedUntil: {
+      type: Date,
+      index: true,
+    },
   },
   {
     timestamps: true,

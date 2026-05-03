@@ -190,9 +190,10 @@ const getVideoFeed = asyncHandler(async (req, res) => {
   }
 
   const count = await Video.countDocuments(query);
+  // Prioritize boosted videos, then sort by newest
   const videos = await Video.find(query)
     .populate('channel', 'name avatar')
-    .sort({ createdAt: -1 })
+    .sort({ isBoosted: -1, createdAt: -1 })
     .limit(pageSize)
     .skip(pageSize * (page - 1));
 

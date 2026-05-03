@@ -19,6 +19,7 @@ export default function SettingsPage() {
   const [mon, setMon] = useState({ enabled: true, share: 55, minWithdraw: 500, upi: true, bank: true, paypal: false });
   const [email, setEmail] = useState({ host: "smtp.sendgrid.net", port: 587, user: "apikey", pass: "" });
   const [security, setSecurity] = useState({ verifyEmail: true, force2fa: true, sessionTimeout: 60, ipWhitelist: "" });
+  const [boost, setBoost] = useState({ perDayCost: 100, discount3Days: 10, discount7Days: 20 });
 
   const fetchSettings = async () => {
     try {
@@ -29,6 +30,7 @@ export default function SettingsPage() {
         if (data.monetization) setMon(data.monetization);
         if (data.email) setEmail(data.email);
         if (data.security) setSecurity(data.security);
+        if (data.boost) setBoost(data.boost);
       }
     } catch (error) {
       console.error("Error fetching settings:", error);
@@ -50,6 +52,7 @@ export default function SettingsPage() {
         monetization: mon,
         email,
         security,
+        boost,
       });
       toast.success("Settings saved");
     } catch (error) {
@@ -77,6 +80,7 @@ export default function SettingsPage() {
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="upload">Upload</TabsTrigger>
           <TabsTrigger value="monetization">Monetization</TabsTrigger>
+          <TabsTrigger value="boost">Promotion (Boost)</TabsTrigger>
           <TabsTrigger value="email">Email</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
         </TabsList>
@@ -129,6 +133,17 @@ export default function SettingsPage() {
               <div className="flex items-center justify-between rounded-md border p-3"><span className="text-sm">PayPal</span><Switch checked={mon.paypal} onCheckedChange={(v) => setMon({ ...mon, paypal: v })} /></div>
             </div>
             <Button onClick={saveSettings}><Save className="w-4 h-4 mr-1" />Save</Button>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="boost" className="mt-4">
+          <Card className="p-6 space-y-4 max-w-2xl">
+            <div><Label>Per Day Boost Cost (₹)</Label><Input type="number" value={boost.perDayCost} onChange={(e) => setBoost({ ...boost, perDayCost: +e.target.value })} /></div>
+            <div className="grid grid-cols-2 gap-4">
+              <div><Label>3-Day Discount (%)</Label><Input type="number" value={boost.discount3Days} onChange={(e) => setBoost({ ...boost, discount3Days: +e.target.value })} /></div>
+              <div><Label>7-Day Discount (%)</Label><Input type="number" value={boost.discount7Days} onChange={(e) => setBoost({ ...boost, discount7Days: +e.target.value })} /></div>
+            </div>
+            <Button onClick={saveSettings}><Save className="w-4 h-4 mr-1" />Save Boost Settings</Button>
           </Card>
         </TabsContent>
 

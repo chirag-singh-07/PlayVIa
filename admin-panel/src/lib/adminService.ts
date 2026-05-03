@@ -143,5 +143,10 @@ export const adminService = {
   updateWithdrawalStatus: async (id: string, status: string) => {
     const response = await api.put(`/admin/withdrawals/${id}`, { status });
     return response.data;
+  },
+
+  getBoosts: async () => {
+    const response = await api.get('/boost/all');
+    return response.data;
   }
 };

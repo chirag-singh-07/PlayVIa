@@ -32,6 +32,30 @@ const initCronJobs = () => {
       console.error('Error cleaning old notifications:', error);
     }
   });
+
+  // 3. Expire boosts every 30 minutes
+  cron.schedule('*/30 * * * *', async () => {
+    console.log('Running background job: Checking for expired boosts...');
+    try {
+      const now = new Date();
+      // Reset isBoosted for videos that have reached their limit
+      const result = await Video.updateMany(
+        { isBoosted: true, boostedUntil: { $lt: now } },
+        { $set: { isBoosted: false } }
+      );
+
+      // Mark Boost records as expired
+      const Boost = require('../models/Boost');
+      await Boost.updateMany(
+        { status: 'active', endDate: { $lt: now } },
+        { $set: { status: 'expired' } }
+      );
+
+      console.log(`Expired ${result.modifiedCount} video boosts.`);
+    } catch (error) {
+      console.error('Error expiring boosts:', error);
+    }
+  });
 };
 
 module.exports = initCronJobs;

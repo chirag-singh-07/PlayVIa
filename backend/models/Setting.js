@@ -29,10 +29,13 @@ const settingSchema = new mongoose.Schema({
     pass: { type: String, default: "" }
   },
   security: {
-    verifyEmail: { type: Boolean, default: true },
-    force2fa: { type: Boolean, default: true },
     sessionTimeout: { type: Number, default: 60 },
     ipWhitelist: { type: String, default: "" }
+  },
+  boost: {
+    perDayCost: { type: Number, default: 100 },
+    discount3Days: { type: Number, default: 10 }, // percent
+    discount7Days: { type: Number, default: 20 }  // percent
   }
 }, { timestamps: true });
 

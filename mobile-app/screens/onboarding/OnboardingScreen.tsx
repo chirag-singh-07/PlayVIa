@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity, InteractionManager } from 'react-native';
-import Animated, { FadeInRight, FadeOutLeft, interpolate, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { FadeInRight, FadeOutLeft, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -32,12 +32,33 @@ const slides = [
   },
 ];
 
+// ✅ Moved OUTSIDE OnboardingScreen to avoid React hooks rules violation
+// (Defining components with hooks inside render crashes on Hermes/production)
+const Dot = ({
+  index,
+  currentIndex,
+  borderColor,
+}: {
+  index: number;
+  currentIndex: number;
+  borderColor: string;
+}) => {
+  const animatedDotStyle = useAnimatedStyle(() => {
+    const isActive = currentIndex === index;
+    return {
+      width: withSpring(isActive ? 24 : 8),
+      backgroundColor: isActive ? colors.primary : borderColor,
+    };
+  });
+
+  return <Animated.View style={[styles.dot, animatedDotStyle]} />;
+};
+
 export const OnboardingScreen: React.FC<any> = ({ navigation }) => {
   const { theme } = useTheme();
   const themeColors = theme === 'dark' ? colors.dark : colors.light;
   
   const [currentIndex, setCurrentIndex] = useState(0);
-  const scrollX = useSharedValue(0);
 
   const handleNext = () => {
     if (currentIndex < slides.length - 1) {
@@ -53,18 +74,6 @@ export const OnboardingScreen: React.FC<any> = ({ navigation }) => {
     InteractionManager.runAfterInteractions(() => {
       navigation.replace('Login');
     });
-  };
-
-  const Dot = ({ index }: { index: number }) => {
-    const animatedDotStyle = useAnimatedStyle(() => {
-      const isActive = currentIndex === index;
-      return {
-        width: withSpring(isActive ? 24 : 8),
-        backgroundColor: isActive ? colors.primary : themeColors.border,
-      };
-    });
-
-    return <Animated.View style={[styles.dot, animatedDotStyle]} />;
   };
 
   const currentSlide = slides[currentIndex];
@@ -101,7 +110,12 @@ export const OnboardingScreen: React.FC<any> = ({ navigation }) => {
       <View style={styles.footer}>
         <View style={styles.pagination}>
           {slides.map((_, index) => (
-            <Dot key={index} index={index} />
+            <Dot
+              key={index}
+              index={index}
+              currentIndex={currentIndex}
+              borderColor={themeColors.border}
+            />
           ))}
         </View>
 

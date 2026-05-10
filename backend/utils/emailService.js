@@ -22,7 +22,7 @@ verifyEmailConnection();
 const sendEmail = async ({ to, subject, title, body, otp, expiry }, retryCount = 0) => {
   try {
     const data = await resend.emails.send({
-      from: 'PlayVia <onboarding@resend.dev>', // Update this to your verified domain in production
+      from: 'PlayVia <onboarding@playvia.in>', // Update this to your verified domain in production
       to: [to],
       subject: subject,
       html: `

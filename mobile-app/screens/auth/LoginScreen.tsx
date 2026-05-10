@@ -19,7 +19,6 @@ import { AuthButton } from "../../components/auth/AuthButton";
 // FIXED: replaced @react-native-google-signin/google-signin with
 // expo-auth-session/providers/google
 import { useFormValidation } from "../../hooks/useFormValidation";
-import { useGoogleAuth } from "../../hooks/useGoogleAuth";
 import { ScreenWrapper } from "../../components/ScreenWrapper";
 
 import { useAuth } from "../../context/AuthContext";
@@ -29,19 +28,7 @@ export const LoginScreen: React.FC<any> = ({ navigation }) => {
   const { theme } = useTheme();
   const themeColors = theme === "dark" ? colors.dark : colors.light;
   const { validateEmail } = useFormValidation();
-  const { login: authLogin, googleLogin: authGoogleLogin } = useAuth();
-
-  const handleGoogleSuccess = async (accessToken: string) => {
-    setIsLoading(true);
-    try {
-      await authGoogleLogin(accessToken);
-    } catch (error: any) {
-      setIsLoading(false);
-      showAuthError(error);
-    }
-  };
-
-  const { promptAsync } = useGoogleAuth(handleGoogleSuccess);
+  const { login: authLogin } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

@@ -550,12 +550,14 @@ export default function LandingPage() {
                       <div className="font-bold -mt-0.5">App Store</div>
                     </div>
                   </Button>
-                  <Button size="lg" variant="secondary" className="bg-background text-foreground hover:bg-background/90 h-14 px-6">
-                    <Play className="mr-3 h-6 w-6 fill-current" />
-                    <div className="text-left">
-                      <div className="text-[10px] opacity-70">Get it on</div>
-                      <div className="font-bold -mt-0.5">Google Play</div>
-                    </div>
+                  <Button asChild size="lg" variant="secondary" className="bg-background text-foreground hover:bg-background/90 h-14 px-6">
+                    <a href="https://play.google.com/store/apps/details?id=com.rudnex.app" target="_blank" rel="noopener noreferrer">
+                      <Play className="mr-3 h-6 w-6 fill-current" />
+                      <div className="text-left">
+                        <div className="text-[10px] opacity-70">Get it on</div>
+                        <div className="font-bold -mt-0.5">Google Play</div>
+                      </div>
+                    </a>
                   </Button>
                 </div>
               </motion.div>

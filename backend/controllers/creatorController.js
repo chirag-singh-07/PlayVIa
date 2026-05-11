@@ -180,6 +180,50 @@ const createPayoutRequest = asyncHandler(async (req, res) => {
   const { amount, method, details, note } = req.body;
   const Payout = require('../models/Payout');
 
+  // Validate minimum withdrawal amount
+  const MINIMUM_WITHDRAWAL = 5000;
+  if (amount < MINIMUM_WITHDRAWAL) {
+    res.status(400);
+    throw new Error(`Minimum withdrawal amount is ₹${MINIMUM_WITHDRAWAL}. Current amount: ₹${amount}`);
+  }
+
+  // Validate method
+  if (!['upi', 'bank'].includes(method)) {
+    res.status(400);
+    throw new Error('Invalid withdrawal method. Must be "upi" or "bank"');
+  }
+
+  // Validate details based on method
+  if (method === 'bank') {
+    if (!details?.accountHolder || !details?.accountNumber || !details?.ifsc || !details?.bankName) {
+      res.status(400);
+      throw new Error('Bank details required: accountHolder, accountNumber, ifsc, bankName');
+    }
+  } else if (method === 'upi') {
+    if (!details?.upi) {
+      res.status(400);
+      throw new Error('UPI ID is required');
+    }
+  }
+
+  // Check if user has enough earnings
+  const Channel = require('../models/Channel');
+  const Earnings = require('../models/Earnings');
+  
+  const channel = await Channel.findOne({ owner: req.user._id });
+  if (!channel) {
+    res.status(404);
+    throw new Error('Channel not found');
+  }
+
+  const earnings = await Earnings.findOne({ channel: channel._id });
+  const availableEarnings = earnings ? earnings.totalEarnings : 0;
+
+  if (amount > availableEarnings) {
+    res.status(400);
+    throw new Error(`Insufficient earnings. Available: ₹${availableEarnings}, Requested: ₹${amount}`);
+  }
+
   const payout = await Payout.create({
     user: req.user._id,
     amount,
@@ -188,7 +232,11 @@ const createPayoutRequest = asyncHandler(async (req, res) => {
     note,
   });
 
-  res.status(201).json(payout);
+  res.status(201).json({
+    success: true,
+    message: 'Withdrawal request submitted. You will receive the amount within 7 business days.',
+    payout
+  });
 });
 
 module.exports = {

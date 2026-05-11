@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Dimensions, Animated } from 'react-native';
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Dimensions, Animated, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../components/Avatar';
 import { colors, typography } from '../theme';
@@ -12,6 +12,10 @@ import { historyService } from '../services/historyService';
 import { useAuth } from '../context/AuthContext';
 import { formatViews, formatTimeAgo, formatDuration } from '../utils/videoUtils';
 import { Alert, Share } from 'react-native';
+import { useOptimisticUpdate } from '../hooks/useOptimisticUpdate';
+import { optimisticVideoService, optimisticSubscriptionService } from '../services/optimisticService';
+import { usePreRollAds } from '../hooks/ads/usePreRollAds';
+import { PreRollAdView } from '../components/ads/PreRollAdView';
 
 import { Video, ResizeMode } from 'expo-av';
 import { CommentsModal } from '../components/CommentsModal';
@@ -24,6 +28,12 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
   const [isLiked, setIsLiked] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [comments, setComments] = useState<any[]>([]);
+  const [isLikeSyncing, setIsLikeSyncing] = useState(false);
+  const [isSubscribeSyncing, setIsSubscribeSyncing] = useState(false);
+  const [shouldPlayVideo, setShouldPlayVideo] = useState(false);
+  
+  // Pre-roll ads
+  const { showAds, skipCurrentAd, isShowingAds, currentAdState } = usePreRollAds(2);
   
   const videoRef = useRef<Video>(null);
   const [status, setStatus] = useState<any>({});
@@ -69,6 +79,17 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
 
     fetchVideoDetails();
   }, [initialVideo?._id]);
+
+  // Show pre-roll ads when video is ready
+  useEffect(() => {
+    if (!loading && video._id && !shouldPlayVideo) {
+      console.log('[PreRoll] Starting pre-roll ads...');
+      showAds(() => {
+        console.log('[PreRoll] Ads complete, video ready to play');
+        setShouldPlayVideo(true);
+      });
+    }
+  }, [loading, video._id, shouldPlayVideo]);
 
   const handleAddComment = async () => {
     if (!isAuthenticated) {
@@ -164,12 +185,26 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
       Alert.alert('Login Required', 'Please login to like videos.');
       return;
     }
+
+    // Immediate optimistic update
+    const wasLiked = isLiked;
+    const previousLikesCount = video.likesCount || 0;
+    
+    setIsLiked(!wasLiked);
+    setVideo({ ...video, likesCount: !wasLiked ? previousLikesCount + 1 : Math.max(0, previousLikesCount - 1) });
+    setIsLikeSyncing(true);
+
     try {
-      const result = await videoService.toggleLike(video._id);
-      setIsLiked(!isLiked);
-      setVideo({ ...video, likesCount: result.likesCount });
+      // Sync with server in background
+      await videoService.toggleLike(video._id);
     } catch (error) {
-      console.error('Error toggling like:', error);
+      console.error('Error syncing like:', error);
+      // Rollback on error
+      setIsLiked(wasLiked);
+      setVideo({ ...video, likesCount: previousLikesCount });
+      Alert.alert('Error', 'Failed to sync like. Please try again.');
+    } finally {
+      setIsLikeSyncing(false);
     }
   };
 
@@ -178,13 +213,44 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
       Alert.alert('Login Required', 'Please login to subscribe.');
       return;
     }
+
+    // Immediate optimistic update
+    const wasSubscribed = isSubscribed;
+    const previousSubscriberCount = video.channel?.subscribersCount || 0;
+
+    setIsSubscribed(!wasSubscribed);
+    if (video.channel) {
+      setVideo({
+        ...video,
+        channel: {
+          ...video.channel,
+          subscribersCount: !wasSubscribed ? previousSubscriberCount + 1 : Math.max(0, previousSubscriberCount - 1),
+        },
+      });
+    }
+    setIsSubscribeSyncing(true);
+
     try {
       if (video.channel?._id) {
+        // Sync with server in background
         await channelService.subscribeToChannel(video.channel._id);
-        setIsSubscribed(!isSubscribed);
       }
     } catch (error) {
-      console.error('Error toggling subscription:', error);
+      console.error('Error syncing subscription:', error);
+      // Rollback on error
+      setIsSubscribed(wasSubscribed);
+      if (video.channel) {
+        setVideo({
+          ...video,
+          channel: {
+            ...video.channel,
+            subscribersCount: previousSubscriberCount,
+          },
+        });
+      }
+      Alert.alert('Error', 'Failed to sync subscription. Please try again.');
+    } finally {
+      setIsSubscribeSyncing(false);
     }
   };
 
@@ -201,41 +267,64 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
   };
 
   return (
-    <ScreenWrapper edges={['top', 'bottom']} style={isLandscape ? styles.landscapeContainer : {}}>
-      {/* Video Player Area */}
-      <TouchableOpacity 
-        activeOpacity={1} 
-        style={[styles.playerContainer, isLandscape && styles.playerContainerLandscape]} 
-        onPress={toggleControls}
-      >
-        {/* FIXED: handled React 19 ref issue with expo-av Video */}
-        {(() => {
-          const VideoPlayer = Video as any;
-          return (
-            activeUrl && activeUrl.trim() !== '' ? (
-              <VideoPlayer
-                ref={videoRef}
-                source={{ uri: activeUrl }}
-                style={styles.video}
-                resizeMode={ResizeMode.CONTAIN}
-                shouldPlay={true}
-                onPlaybackStatusUpdate={(newStatus: any) => {
-                setStatus(newStatus);
-                // Auto-update duration on server if it's missing (0)
-                if (newStatus.isLoaded && newStatus.durationMillis && (!video.duration || video.duration === 0)) {
-                  const actualDuration = Math.round(newStatus.durationMillis / 1000);
-                  if (actualDuration > 0) {
-                    setVideo((prev: any) => ({ ...prev, duration: actualDuration }));
-                    videoService.updateVideoDuration(video._id, actualDuration).catch(() => {});
-                  }
-                }
-              }}
-              useNativeControls={false}
-            />
-            ) : null
-          );
-        })()}
+    <>
+      {/* Pre-Roll Ads Overlay */}
+      {isShowingAds && currentAdState && (
+        <PreRollAdView
+          visible={isShowingAds}
+          adIndex={currentAdState.adIndex}
+          totalAds={2}
+          timeRemaining={Math.ceil(currentAdState.timeRemaining)}
+          canSkip={currentAdState.canSkip}
+          onSkip={skipCurrentAd}
+          currentAdId={currentAdState.currentAdId}
+        />
+      )}
 
+      <ScreenWrapper edges={['top', 'bottom']} style={isLandscape ? styles.landscapeContainer : {}}>
+        {/* Video Player Area */}
+        <TouchableOpacity 
+          activeOpacity={1} 
+          style={[styles.playerContainer, isLandscape && styles.playerContainerLandscape]} 
+          onPress={toggleControls}
+        >
+          {/* Show loading while ads play */}
+          {!shouldPlayVideo && !isShowingAds && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color={colors.dark.primary} />
+              <Text style={styles.loadingText}>Preparing video...</Text>
+            </View>
+          )}
+
+          {/* Video Player - Only render when ads are done */}
+          {shouldPlayVideo && (
+            (() => {
+              const VideoPlayer = Video as any;
+              return (
+                activeUrl && activeUrl.trim() !== '' ? (
+                  <VideoPlayer
+                    ref={videoRef}
+                    source={{ uri: activeUrl }}
+                    style={styles.video}
+                    resizeMode={ResizeMode.CONTAIN}
+                    shouldPlay={true}
+                    onPlaybackStatusUpdate={(newStatus: any) => {
+                    setStatus(newStatus);
+                    // Auto-update duration on server if it's missing (0)
+                    if (newStatus.isLoaded && newStatus.durationMillis && (!video.duration || video.duration === 0)) {
+                      const actualDuration = Math.round(newStatus.durationMillis / 1000);
+                      if (actualDuration > 0) {
+                        setVideo((prev: any) => ({ ...prev, duration: actualDuration }));
+                        videoService.updateVideoDuration(video._id, actualDuration).catch(() => {});
+                      }
+                    }
+                  }}
+                  useNativeControls={false}
+                />
+                ) : null
+              );
+            })()
+          )}
         {/* Real YouTube-style Progress Bar at the very bottom of video */}
         <View style={styles.progressBarBackground}>
           <View 
@@ -315,22 +404,31 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
             <TouchableOpacity 
               style={[styles.subscribeBtn, isSubscribed && { backgroundColor: colors.dark.surface }]} 
               onPress={toggleSubscribe}
+              disabled={isSubscribeSyncing}
             >
-              <Text style={[styles.subscribeText, isSubscribed && { color: colors.dark.textSecondary }]}>
-                {isSubscribed ? 'Subscribed' : 'Subscribe'}
-              </Text>
+              {isSubscribeSyncing ? (
+                <ActivityIndicator size="small" color={isSubscribed ? colors.dark.textSecondary : colors.dark.black} />
+              ) : (
+                <Text style={[styles.subscribeText, isSubscribed && { color: colors.dark.textSecondary }]}>
+                  {isSubscribed ? 'Subscribed' : 'Subscribe'}
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
 
           {/* Action Buttons (Horizontal Scroll) */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actionsScroll}>
             <View style={styles.actionGroup}>
-              <TouchableOpacity style={styles.actionBtnLeft} onPress={toggleLike}>
-                <Ionicons 
-                  name={isLiked ? "thumbs-up" : "thumbs-up-outline"} 
-                  size={20} 
-                  color={isLiked ? colors.dark.primary : colors.dark.text} 
-                />
+              <TouchableOpacity style={styles.actionBtnLeft} onPress={toggleLike} disabled={isLikeSyncing}>
+                {isLikeSyncing ? (
+                  <ActivityIndicator size="small" color={colors.dark.primary} />
+                ) : (
+                  <Ionicons 
+                    name={isLiked ? "thumbs-up" : "thumbs-up-outline"} 
+                    size={20} 
+                    color={isLiked ? colors.dark.primary : colors.dark.text} 
+                  />
+                )}
                 <Text style={styles.actionBtnText}>{formatViews(video.likesCount || 0)}</Text>
               </TouchableOpacity>
               <View style={styles.actionDivider} />
@@ -400,6 +498,7 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
         </View>
       )}
     </ScreenWrapper>
+    </>
   );
 };
 
@@ -427,6 +526,18 @@ const styles = StyleSheet.create({
   video: {
     width: '100%',
     height: '100%',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  loadingText: {
+    color: colors.dark.text,
+    fontSize: typography.sizes.md,
+    marginTop: layout.spacing.md,
   },
   playerOverlay: {
     ...StyleSheet.absoluteFillObject,

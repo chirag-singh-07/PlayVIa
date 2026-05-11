@@ -24,6 +24,7 @@ export const CommentsModal: React.FC<Props> = ({ visible, onClose, videoId }) =>
   const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [syncingCommentIds, setSyncingCommentIds] = useState<Set<string>>(new Set());
   
   const [replyingTo, setReplyingTo] = useState<any>(null);
   const [repliesData, setRepliesData] = useState<{ [key: string]: any[] }>({});
@@ -50,8 +51,8 @@ export const CommentsModal: React.FC<Props> = ({ visible, onClose, videoId }) =>
   const handleAddComment = async () => {
     if (!commentText.trim() || submitting || !isAuthenticated) return;
 
-    // Optimistic Update
-    const tempId = Date.now().toString();
+    // Optimistic Update - Show comment immediately
+    const tempId = `temp-${Date.now()}`;
     const newComment = {
       _id: tempId,
       text: commentText,
@@ -84,22 +85,51 @@ export const CommentsModal: React.FC<Props> = ({ visible, onClose, videoId }) =>
     setCommentText('');
     setReplyingTo(null);
     setSubmitting(true);
+    setSyncingCommentIds(prev => new Set([...prev, tempId]));
     Keyboard.dismiss();
 
     try {
-      await commentService.addComment(videoId, originalText, parentId);
+      // Sync with backend
+      const serverResponse = await commentService.addComment(videoId, originalText, parentId);
+      
+      // Replace temp comment with server version
+      if (replyingTo) {
+        setRepliesData(prev => ({
+          ...prev,
+          [parentId]: prev[parentId]?.map(c => c._id === tempId ? serverResponse : c) || []
+        }));
+      } else {
+        setComments(prev => prev.map(c => c._id === tempId ? serverResponse : c));
+      }
     } catch (error) {
-      // Revert if failed (simplified revert, ideally refresh list)
       console.error('Add comment failed:', error);
-      fetchComments(); // safest revert
+      // Rollback - remove the temp comment
+      if (replyingTo) {
+        setRepliesData(prev => ({
+          ...prev,
+          [parentId]: prev[parentId]?.filter(c => c._id !== tempId) || []
+        }));
+        setComments(prev => prev.map(c => 
+          c._id === replyingTo._id ? { ...c, repliesCount: Math.max(0, (c.repliesCount || 0) - 1) } : c
+        ));
+      } else {
+        setComments(prev => prev.filter(c => c._id !== tempId));
+      }
+      Alert.alert('Error', 'Failed to add comment. Please try again.');
     } finally {
       setSubmitting(false);
+      setSyncingCommentIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(tempId);
+        return newSet;
+      });
     }
   };
 
   const handleLike = async (comment: any, isReply = false, parentId?: string) => {
     if (!isAuthenticated) return;
     
+    // Optimistic update
     const isLiked = comment.likes?.includes(currentUser?._id);
     const newLikesCount = isLiked ? Math.max(0, (comment.likesCount || 0) - 1) : (comment.likesCount || 0) + 1;
     const newLikesArray = isLiked 
@@ -108,17 +138,38 @@ export const CommentsModal: React.FC<Props> = ({ visible, onClose, videoId }) =>
 
     const updateFn = (c: any) => c._id === comment._id ? { ...c, likesCount: newLikesCount, likes: newLikesArray } : c;
 
+    // Update UI immediately
     if (isReply && parentId) {
       setRepliesData(prev => ({ ...prev, [parentId]: prev[parentId]?.map(updateFn) || [] }));
     } else {
       setComments(prev => prev.map(updateFn));
     }
 
+    // Mark as syncing
+    setSyncingCommentIds(prev => new Set([...prev, comment._id]));
+
     try {
+      // Sync with backend
       await commentService.likeComment(comment._id);
     } catch (error) {
       console.error('Like failed:', error);
-      // Revert logic could be added here
+      // Rollback on error
+      const revertUpdateFn = (c: any) => c._id === comment._id 
+        ? { ...c, likesCount: comment.likesCount, likes: comment.likes } 
+        : c;
+      
+      if (isReply && parentId) {
+        setRepliesData(prev => ({ ...prev, [parentId]: prev[parentId]?.map(revertUpdateFn) || [] }));
+      } else {
+        setComments(prev => prev.map(revertUpdateFn));
+      }
+      Alert.alert('Error', 'Failed to like comment. Please try again.');
+    } finally {
+      setSyncingCommentIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(comment._id);
+        return newSet;
+      });
     }
   };
 
@@ -189,6 +240,7 @@ export const CommentsModal: React.FC<Props> = ({ visible, onClose, videoId }) =>
 
   const renderReplyItem = (reply: any, parentId: string) => {
     const isLiked = reply.likes?.includes(currentUser?._id);
+    const isSyncing = syncingCommentIds.has(reply._id);
     return (
       <TouchableOpacity 
         key={reply._id} 
@@ -204,12 +256,20 @@ export const CommentsModal: React.FC<Props> = ({ visible, onClose, videoId }) =>
           </View>
           <Text style={styles.commentText}>{reply.text}</Text>
           <View style={styles.commentActions}>
-            <TouchableOpacity style={styles.commentAction} onPress={() => handleLike(reply, true, parentId)}>
-              <Ionicons 
-                name={isLiked ? "thumbs-up" : "thumbs-up-outline"} 
-                size={14} 
-                color={isLiked ? colors.dark.primary : colors.dark.textSecondary} 
-              />
+            <TouchableOpacity 
+              style={styles.commentAction} 
+              onPress={() => handleLike(reply, true, parentId)}
+              disabled={isSyncing}
+            >
+              {isSyncing ? (
+                <ActivityIndicator size="small" color={colors.dark.primary} />
+              ) : (
+                <Ionicons 
+                  name={isLiked ? "thumbs-up" : "thumbs-up-outline"} 
+                  size={14} 
+                  color={isLiked ? colors.dark.primary : colors.dark.textSecondary} 
+                />
+              )}
               <Text style={styles.commentActionText}>{reply.likesCount || reply.likes?.length || 0}</Text>
             </TouchableOpacity>
           </View>
@@ -222,6 +282,7 @@ export const CommentsModal: React.FC<Props> = ({ visible, onClose, videoId }) =>
     const isLiked = item.likes?.includes(currentUser?._id);
     const hasReplies = item.repliesCount > 0;
     const isRepliesExpanded = !!repliesData[item._id];
+    const isSyncing = syncingCommentIds.has(item._id);
 
     return (
       <View style={{ marginBottom: layout.spacing.lg }}>
@@ -236,14 +297,22 @@ export const CommentsModal: React.FC<Props> = ({ visible, onClose, videoId }) =>
               <Text style={styles.username}>{item.user?.username || 'User'}</Text>
               <Text style={styles.timestamp}>{formatTimeAgo(item.createdAt)}</Text>
             </View>
-            <Text style={styles.commentText}>{item.text}</Text>
+            <Text style={[styles.commentText, item._id.startsWith('temp-') && { opacity: 0.6 }]}>{item.text}</Text>
             <View style={styles.commentActions}>
-              <TouchableOpacity style={styles.commentAction} onPress={() => handleLike(item)}>
-                <Ionicons 
-                  name={isLiked ? "thumbs-up" : "thumbs-up-outline"} 
-                  size={16} 
-                  color={isLiked ? colors.dark.primary : colors.dark.textSecondary} 
-                />
+              <TouchableOpacity 
+                style={styles.commentAction} 
+                onPress={() => handleLike(item)}
+                disabled={isSyncing}
+              >
+                {isSyncing ? (
+                  <ActivityIndicator size="small" color={colors.dark.primary} />
+                ) : (
+                  <Ionicons 
+                    name={isLiked ? "thumbs-up" : "thumbs-up-outline"} 
+                    size={16} 
+                    color={isLiked ? colors.dark.primary : colors.dark.textSecondary} 
+                  />
+                )}
                 <Text style={styles.commentActionText}>{item.likesCount || item.likes?.length || 0}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.commentAction} onPress={() => setReplyingTo(item)}>

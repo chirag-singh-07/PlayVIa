@@ -61,7 +61,8 @@ const createBoostOrder = asyncHandler(async (req, res) => {
   const options = {
     amount: Math.round(totalAmount * 100), // amount in smallest currency unit (paise)
     currency: 'INR',
-    receipt: `receipt_boost_${videoId}_${Date.now()}`,
+    // Receipt MUST be under 40 characters per Razorpay requirements
+    receipt: `BOOST_${Date.now().toString().slice(-8)}_${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
   };
 
   const razorpay = getRazorpay();

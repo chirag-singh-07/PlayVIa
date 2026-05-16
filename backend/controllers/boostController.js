@@ -159,16 +159,31 @@ const getMyBoosts = asyncHandler(async (req, res) => {
 // @access  Public (or Private)
 const getBoostSettings = asyncHandler(async (req, res) => {
   const settings = await Setting.findOne();
+  
+  // Return defaults if settings document is missing
   const perDayCost = settings?.boost?.perDayCost || 100;
+  const discounts = {
+    days3: settings?.boost?.discount3Days || 10,
+    days7: settings?.boost?.discount7Days || 20,
+    days30: settings?.boost?.discount30Days || 30,
+  };
   
   res.status(200).json({
     perDayCost,
-    discounts: {
-      days3: settings?.boost?.discount3Days || 10,
-      days7: settings?.boost?.discount7Days || 20,
-      days30: settings?.boost?.discount30Days || 30,
-    }
+    discounts
   });
+});
+
+// @desc    Get all boosts (Admin)
+// @route   GET /api/boost/all
+// @access  Private/Admin
+const getAllBoosts = asyncHandler(async (req, res) => {
+  const boosts = await Boost.find()
+    .populate('user', 'name email')
+    .populate('video', 'title')
+    .sort({ createdAt: -1 });
+
+  res.status(200).json(boosts);
 });
 
 module.exports = {

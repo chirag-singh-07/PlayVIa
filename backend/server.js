@@ -46,7 +46,7 @@ app.use(helmet());
 // Detailed Request Logging Middleware
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
-  if (req.method !== 'GET' && Object.keys(req.body).length > 0) {
+  if (req.method !== 'GET' && req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
     console.log('Body:', JSON.stringify(req.body, null, 2));
   }
   next();

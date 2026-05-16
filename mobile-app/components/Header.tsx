@@ -17,8 +17,8 @@ export const Header: React.FC = () => {
     <View style={styles.container}>
       {/* Logo Area */}
       <View style={styles.logoContainer}>
-        <Ionicons name="logo-youtube" size={28} color={colors.dark.primary} />
-        <Text style={styles.logoText}>VidPlay</Text>
+        <Ionicons name="play-circle" size={32} color={colors.dark.primary} />
+        <Text style={styles.logoText}>PlayVia</Text>
       </View>
 
       {/* Actions */}

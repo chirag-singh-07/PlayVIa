@@ -81,6 +81,10 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
   const [selectedVideo, setSelectedVideo] = React.useState<any>(null);
   const [isBoosting, setIsBoosting] = React.useState(false);
   const [boostSettings, setBoostSettings] = React.useState<any>(null);
+  const [selectedPlan, setSelectedPlan] = React.useState<{days: number, price: number} | null>({days: 7, price: 0});
+  const [paymentStatus, setPaymentStatus] = React.useState<'idle' | 'success' | 'failed' | 'cancelled'>('idle');
+  const [paymentErrorMessage, setPaymentErrorMessage] = React.useState('');
+  const [lastOrderId, setLastOrderId] = React.useState('');
 
   const RAZORPAY_KEY = process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || "";
 
@@ -101,6 +105,12 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
         setStats(channelStats);
         setComments(channelComments);
         setBoostSettings(settings);
+
+        // Set default selected plan price
+        const perDay = settings?.perDayCost || 100;
+        const discount = settings?.discounts?.days7 || 20;
+        const price = Math.round(perDay * 7 * (1 - discount / 100));
+        setSelectedPlan({ days: 7, price });
       }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -202,6 +212,7 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
         selectedVideo._id,
         duration,
       );
+      setLastOrderId(orderData.orderId);
       console.log("📦 Order received:", JSON.stringify(orderData, null, 2));
 
       // 2. Open Razorpay Checkout
@@ -244,30 +255,42 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
             await boostService.verifyPayment(verifyData);
             console.log("🏆 Boost activated successfully!");
 
-            Alert.alert(
-              "Success",
-              "Your video is now boosted! It will appear at the top of feeds.",
-            );
-            setShowBoostModal(false);
-            fetchDashboardData(); // Refresh to show boosted status
-          } catch (err) {
-            console.error("❌ Verification failed:", err);
-            Alert.alert(
-              "Error",
-              "Payment verification failed. Please contact support.",
-            );
+            setPaymentStatus('success');
+            setTimeout(() => {
+              setPaymentStatus('idle');
+              setShowBoostModal(false);
+              fetchDashboardData();
+            }, 3000);
+          } catch (error: any) {
+            console.error("❌ Verification failed:", error);
+            setPaymentStatus('failed');
+            setPaymentErrorMessage(error.message || "Could not verify payment. Please contact support.");
+            setTimeout(() => setPaymentStatus('idle'), 4000);
           }
         })
         .catch((error: any) => {
-          console.log(
-            "🔴 Razorpay payment failed/canceled:",
-            JSON.stringify(error, null, 2),
-          );
-          Alert.alert(`Error: ${error.code}`, error.description);
+          console.log("💳 Razorpay catch block:", JSON.stringify(error));
+          
+          // Check if it was a user cancellation
+          const isCancelled = error.description?.toLowerCase().includes('cancel') || 
+                              error.error?.description?.toLowerCase().includes('cancel') ||
+                              error.code === 2;
+
+          if (isCancelled) {
+            setPaymentStatus('cancelled');
+            setPaymentErrorMessage("Payment was dismissed.");
+          } else {
+            setPaymentStatus('failed');
+            setPaymentErrorMessage(error.description || "The transaction could not be completed.");
+          }
+          
+          setTimeout(() => setPaymentStatus('idle'), 3000);
         });
     } catch (error: any) {
-      console.error("❌ Boost setup failed:", error);
-      Alert.alert("Error", "Failed to initialize payment. Try again later.");
+      console.error("❌ Order creation failed:", error);
+      setPaymentStatus('failed');
+      setPaymentErrorMessage("Failed to initialize order. Please try again.");
+      setTimeout(() => setPaymentStatus('idle'), 3000);
     } finally {
       setIsBoosting(false);
     }
@@ -746,15 +769,14 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
                   originalPrice * (1 - discount / 100),
                 );
                 const savings = originalPrice - finalPrice;
-
                 return (
                   <TouchableOpacity
                     key={days}
                     style={[
                       styles.boostOption,
-                      days === 7 && styles.selectedOption,
+                      selectedPlan?.days === days && styles.selectedOption,
                     ]}
-                    onPress={() => handleBoostVideo(days, finalPrice)}
+                    onPress={() => setSelectedPlan({ days, price: finalPrice })}
                   >
                     <View>
                       <Text style={styles.optionTitle}>{days} Days Boost</Text>
@@ -788,8 +810,29 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
                   </TouchableOpacity>
                 );
               })}
-
             </View>
+
+            <TouchableOpacity 
+              style={[
+                styles.payButton, 
+                isBoosting && { backgroundColor: '#00E676' },
+                (!selectedPlan || isBoosting) && styles.disabledPayButton,
+                isBoosting && { opacity: 1 } // Keep it bright green while loading
+              ]}
+              onPress={() => selectedPlan && handleBoostVideo(selectedPlan.days, selectedPlan.price)}
+              disabled={!selectedPlan || isBoosting}
+            >
+              {isBoosting ? (
+                <ActivityIndicator color="#000" />
+              ) : (
+                <>
+                  <Ionicons name="card-outline" size={20} color="#000" />
+                  <Text style={styles.payButtonText}>
+                    PAY ₹{selectedPlan?.price || 0} & BOOST NOW
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
 
             <Text style={styles.boostNote}>
               * Boosted videos appear at the top of Home and Shorts feeds.
@@ -807,6 +850,35 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
           </View>
         </View>
       </Modal>
+
+      {paymentStatus !== 'idle' && (
+        <View style={styles.statusOverlay}>
+          <View style={[
+            styles.statusCard, 
+            paymentStatus === 'failed' && { borderColor: '#FF5252' },
+            paymentStatus === 'cancelled' && { borderColor: '#FFA000' }
+          ]}>
+            <View style={[
+              styles.statusIconCircle, 
+              { backgroundColor: paymentStatus === 'success' ? '#00E676' : (paymentStatus === 'cancelled' ? '#FFA000' : '#FF5252') }
+            ]}>
+              <Ionicons 
+                name={paymentStatus === 'success' ? "checkmark" : (paymentStatus === 'cancelled' ? "close-circle-outline" : "close")} 
+                size={40} 
+                color="white" 
+              />
+            </View>
+            <Text style={styles.statusTitle}>
+              {paymentStatus === 'success' ? 'Payment Successful!' : (paymentStatus === 'cancelled' ? 'Payment Cancelled' : 'Payment Failed')}
+            </Text>
+            <Text style={styles.statusSubtitle}>
+              {paymentStatus === 'success' 
+                ? `Order ID: ${lastOrderId}\nYour video is now being boosted.` 
+                : paymentErrorMessage}
+            </Text>
+          </View>
+        </View>
+      )}
 
       {isUpdating && (
         <View style={styles.loadingOverlay}>
@@ -1393,5 +1465,67 @@ const styles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.5)",
     fontSize: 9,
     fontWeight: "600",
+  },
+  payButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFD600",
+    paddingVertical: 16,
+    borderRadius: 15,
+    marginTop: 10,
+    marginBottom: 20,
+    gap: 10,
+  },
+  payButtonText: {
+    color: "#000",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  disabledPayButton: {
+    backgroundColor: "#444",
+    opacity: 0.5,
+  },
+  statusOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10000,
+  },
+  statusCard: {
+    width: width * 0.8,
+    backgroundColor: '#1E1E1E',
+    borderRadius: 25,
+    padding: 30,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#00E676',
+  },
+  statusIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  statusTitle: {
+    color: 'white',
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  statusSubtitle: {
+    color: colors.dark.textSecondary,
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

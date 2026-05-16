@@ -32,6 +32,10 @@ const VideoDetailsScreen: React.FC<any> = ({ route, navigation }) => {
   const [showBoostModal, setShowBoostModal] = React.useState(false);
   const [isBoosting, setIsBoosting] = React.useState(false);
   const [boostSettings, setBoostSettings] = React.useState<any>(null);
+  const [selectedPlan, setSelectedPlan] = React.useState<{days: number, price: number} | null>({days: 7, price: 0});
+  const [paymentStatus, setPaymentStatus] = React.useState<'idle' | 'success' | 'failed' | 'cancelled'>('idle');
+  const [paymentErrorMessage, setPaymentErrorMessage] = React.useState('');
+  const [lastOrderId, setLastOrderId] = React.useState('');
 
   const RAZORPAY_KEY = process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || "";
 
@@ -120,6 +124,7 @@ const VideoDetailsScreen: React.FC<any> = ({ route, navigation }) => {
     setIsBoosting(true);
     try {
       const orderData = await boostService.createOrder(video._id, duration);
+      setLastOrderId(orderData.orderId);
       
       const options = {
         description: `Boost Video: ${video.title}`,
@@ -142,14 +147,36 @@ const VideoDetailsScreen: React.FC<any> = ({ route, navigation }) => {
             duration,
             amount: amount,
           });
-          Alert.alert("Success", "Your video is now boosted!");
-          setShowBoostModal(false);
+          
+          setPaymentStatus('success');
+          setTimeout(() => {
+            setPaymentStatus('idle');
+            setShowBoostModal(false);
+            navigation.goBack(); // Return to dashboard or refresh
+          }, 3000);
         })
         .catch((error: any) => {
-          Alert.alert(`Error: ${error.code}`, error.description);
+          console.log("💳 Razorpay catch block:", JSON.stringify(error));
+          
+          const isCancelled = error.description?.toLowerCase().includes('cancel') || 
+                              error.error?.description?.toLowerCase().includes('cancel') ||
+                              error.code === 2;
+
+          if (isCancelled) {
+            setPaymentStatus('cancelled');
+            setPaymentErrorMessage("Payment was dismissed.");
+          } else {
+            setPaymentStatus('failed');
+            setPaymentErrorMessage(error.description || "The transaction could not be completed.");
+          }
+          
+          setTimeout(() => setPaymentStatus('idle'), 3000);
         });
     } catch (error: any) {
-      Alert.alert("Error", "Failed to initialize payment.");
+      console.error("Boost setup error:", error);
+      setPaymentStatus('failed');
+      setPaymentErrorMessage("Failed to initialize order. Please try again.");
+      setTimeout(() => setPaymentStatus('idle'), 3000);
     } finally {
       setIsBoosting(false);
     }
@@ -160,6 +187,12 @@ const VideoDetailsScreen: React.FC<any> = ({ route, navigation }) => {
       try {
         const settings = await boostService.getSettings();
         setBoostSettings(settings);
+        
+        // Set default selected plan price
+        const perDay = settings?.perDayCost || 100;
+        const discount = settings?.discounts?.days7 || 20;
+        const price = Math.round(perDay * 7 * (1 - discount / 100));
+        setSelectedPlan({ days: 7, price });
       } catch (err) {
         console.error('Error fetching boost settings:', err);
       }
@@ -294,9 +327,9 @@ const VideoDetailsScreen: React.FC<any> = ({ route, navigation }) => {
                     key={days}
                     style={[
                       styles.boostOption,
-                      days === 7 && styles.selectedOption,
+                      selectedPlan?.days === days && styles.selectedOption,
                     ]}
-                    onPress={() => handleBoostVideo(days, finalPrice)}
+                    onPress={() => setSelectedPlan({ days, price: finalPrice })}
                   >
                     <View>
                       <Text style={styles.optionTitle}>{days} Days Boost</Text>
@@ -312,6 +345,28 @@ const VideoDetailsScreen: React.FC<any> = ({ route, navigation }) => {
               })}
             </View>
 
+            <TouchableOpacity 
+              style={[
+                styles.payButton, 
+                isBoosting && { backgroundColor: '#00E676' },
+                (!selectedPlan || isBoosting) && styles.disabledPayButton,
+                isBoosting && { opacity: 1 }
+              ]}
+              onPress={() => selectedPlan && handleBoostVideo(selectedPlan.days, selectedPlan.price)}
+              disabled={!selectedPlan || isBoosting}
+            >
+              {isBoosting ? (
+                <ActivityIndicator color="#000" />
+              ) : (
+                <>
+                  <Ionicons name="card-outline" size={20} color="#000" />
+                  <Text style={styles.payButtonText}>
+                    PAY ₹{selectedPlan?.price || 0} & ACTIVATE
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+
             <Text style={styles.boostNote}>
               * Boosted videos appear at the top of Home and Shorts feeds.
             </Text>
@@ -324,6 +379,34 @@ const VideoDetailsScreen: React.FC<any> = ({ route, navigation }) => {
           </View>
         </View>
       </Modal>
+      {paymentStatus !== 'idle' && (
+        <View style={styles.statusOverlay}>
+          <View style={[
+            styles.statusCard, 
+            paymentStatus === 'failed' && { borderColor: '#FF5252' },
+            paymentStatus === 'cancelled' && { borderColor: '#FFA000' }
+          ]}>
+            <View style={[
+              styles.statusIconCircle, 
+              { backgroundColor: paymentStatus === 'success' ? '#00E676' : (paymentStatus === 'cancelled' ? '#FFA000' : '#FF5252') }
+            ]}>
+              <Ionicons 
+                name={paymentStatus === 'success' ? "checkmark" : (paymentStatus === 'cancelled' ? "close-circle-outline" : "close")} 
+                size={40} 
+                color="white" 
+              />
+            </View>
+            <Text style={styles.statusTitle}>
+              {paymentStatus === 'success' ? 'Payment Successful!' : (paymentStatus === 'cancelled' ? 'Payment Cancelled' : 'Payment Failed')}
+            </Text>
+            <Text style={styles.statusSubtitle}>
+              {paymentStatus === 'success' 
+                ? `Order ID: ${lastOrderId}\nYour video is now being boosted.` 
+                : paymentErrorMessage}
+            </Text>
+          </View>
+        </View>
+      )}
     </ScreenWrapper>
   );
 };
@@ -537,6 +620,9 @@ const styles = StyleSheet.create({
     color: colors.dark.textSecondary,
     fontSize: 12,
   },
+  optionPriceContainer: {
+    alignItems: 'flex-end',
+  },
   optionPrice: {
     color: 'white',
     fontSize: 18,
@@ -556,6 +642,63 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     padding: 5,
+  },
+  payButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFD600',
+    paddingVertical: 16,
+    borderRadius: 15,
+    marginTop: 10,
+    marginBottom: 20,
+    gap: 10,
+  },
+  payButtonText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  disabledPayButton: {
+    backgroundColor: '#444',
+    opacity: 0.5,
+  },
+  statusOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10000,
+  },
+  statusCard: {
+    width: '80%',
+    backgroundColor: '#1E1E1E',
+    borderRadius: 25,
+    padding: 30,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#00E676',
+  },
+  statusIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  statusTitle: {
+    color: 'white',
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  statusSubtitle: {
+    color: colors.dark.textSecondary,
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
 export default VideoDetailsScreen;

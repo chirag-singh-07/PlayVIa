@@ -7,7 +7,7 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
 const api = axios.create({
   baseURL: API_URL,
   headers: {
-    'Content-Type': 'application/json',
+    'Accept': 'application/json',
   },
   // 30 second timeout — Render free tier can take ~15-30s to wake up from sleep
   timeout: 30000,
@@ -19,6 +19,11 @@ api.interceptors.request.use(
     const token = await SecureStore.getItemAsync('userToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    // If sending FormData, ensure content-type is set correctly (required for some RN environments)
+    if (config.data instanceof FormData) {
+      config.headers['Content-Type'] = 'multipart/form-data';
     }
     
     // Detailed Request Logging

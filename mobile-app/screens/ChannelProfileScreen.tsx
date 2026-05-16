@@ -30,6 +30,7 @@ export const ChannelProfileScreen: React.FC<any> = ({ navigation, route }) => {
   const [activeTab, setActiveTab] = useState<"videos" | "shorts" | "about">(
     "videos",
   );
+  const [isSubscribeSyncing, setIsSubscribeSyncing] = useState(false);
 
   useEffect(() => {
     const fetchChannelInfo = async () => {
@@ -246,7 +247,10 @@ export const ChannelProfileScreen: React.FC<any> = ({ navigation, route }) => {
                 styles.subscribeBtn,
                 channelData.isSubscribed && styles.subscribedBtn
               ]}
+              disabled={isSubscribeSyncing}
               onPress={async () => {
+                if (isSubscribeSyncing) return;
+                setIsSubscribeSyncing(true);
                 const newSubState = !channelData.isSubscribed;
                 // Optimistic update
                 setChannelData({
@@ -265,6 +269,8 @@ export const ChannelProfileScreen: React.FC<any> = ({ navigation, route }) => {
                     subscribers: !newSubState ? (channelData.subscribers || 0) + 1 : Math.max(0, (channelData.subscribers || 0) - 1)
                   });
                   console.error('Subscribe failed:', error);
+                } finally {
+                  setIsSubscribeSyncing(false);
                 }
               }}
             >

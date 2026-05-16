@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { createChannel, getChannelById, getMyChannel, getChannelVideos, getChannelShorts, getAllChannelContent, updateChannel, getChannelStats } = require('../controllers/channelController');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, protectOptional } = require('../middleware/authMiddleware');
 const { upload } = require('../config/cloudinary');
 
 router.get('/me', protect, getMyChannel);
@@ -15,7 +15,7 @@ router.post(
   ]),
   createChannel
 );
-router.get('/:id', getChannelById);
+router.get('/:id', protectOptional, getChannelById);
 router.get('/:id/videos', getChannelVideos);
 router.get('/:id/shorts', getChannelShorts);
 router.get('/:id/all', getAllChannelContent);

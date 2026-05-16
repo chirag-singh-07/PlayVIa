@@ -55,9 +55,7 @@ export const ShortVideoItem: React.FC<Props> = ({ item, isActive, onCommentPress
   const [likesCount, setLikesCount] = useState(item.likesCount || 0);
   const [isSubscribed, setIsSubscribed] = useState(item.channel?.isSubscribed || false);
   const [subscriberCount, setSubscriberCount] = useState(item.channel?.subscribers || 0);
-
-
-
+  const [isSubscribeSyncing, setIsSubscribeSyncing] = useState(false);
   // Animations
   const likeScale = useRef(new Animated.Value(1)).current;
   const playPauseOpacity = useRef(new Animated.Value(0)).current;
@@ -119,8 +117,9 @@ export const ShortVideoItem: React.FC<Props> = ({ item, isActive, onCommentPress
   }, [isLiked, item._id]);
 
   const handleSubscribe = async () => {
-    if (!item.channel?._id) return;
+    if (!item.channel?._id || isSubscribeSyncing) return;
 
+    setIsSubscribeSyncing(true);
     // Optimistic Update
     const nextSubState = !isSubscribed;
     setIsSubscribed(nextSubState);
@@ -133,6 +132,8 @@ export const ShortVideoItem: React.FC<Props> = ({ item, isActive, onCommentPress
       setIsSubscribed(!nextSubState);
       setSubscriberCount(prev => !nextSubState ? prev + 1 : Math.max(0, prev - 1));
       console.error('Subscribe failed:', error);
+    } finally {
+      setIsSubscribeSyncing(false);
     }
   };
 
@@ -254,6 +255,7 @@ export const ShortVideoItem: React.FC<Props> = ({ item, isActive, onCommentPress
               isSubscribed && styles.subscribedBtn
             ]} 
             onPress={handleSubscribe}
+            disabled={isSubscribeSyncing}
           >
             <Text style={styles.subscribeText}>
               {isSubscribed ? 'Subscribed' : 'Subscribe'}

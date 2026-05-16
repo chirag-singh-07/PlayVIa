@@ -10,6 +10,10 @@ interface AvatarProps {
 
 export const Avatar: React.FC<AvatarProps> = ({ uri, name, size = 40, style }) => {
   const [error, setError] = React.useState(false);
+
+  React.useEffect(() => {
+    setError(false);
+  }, [uri]);
   
   const getInitials = (text?: string) => {
     if (!text) return '?';

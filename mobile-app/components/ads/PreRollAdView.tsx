@@ -18,6 +18,7 @@ import {
   TouchableOpacity,
   Dimensions,
   Animated,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BannerAdView } from './BannerAdView';
@@ -55,9 +56,30 @@ export const PreRollAdView: React.FC<PreRollAdViewProps> = ({
       {/* Dark background overlay */}
       <View style={styles.background} />
 
-      {/* Ad Content Area - Banner Ad Centered */}
+      {/* Ad Content Area */}
       <View style={styles.adContainer}>
-        <BannerAdView size="MEDIUM_RECTANGLE" />
+        {/* Mock Ad Content - Shows when AdMob fails */}
+        <View style={styles.mockAdWrapper}>
+          <Image 
+            source={{ uri: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?q=80&w=800' }} 
+            style={styles.mockAdImage}
+            resizeMode="cover"
+          />
+          <View style={styles.mockAdOverlay}>
+            <View style={styles.mockAdBranding}>
+              <Ionicons name="play-circle" size={40} color={colors.dark.primary} />
+              <Text style={styles.mockAdTitle}>Stream Premium Content</Text>
+              <Text style={styles.mockAdDesc}>Upgrade to PlayVia Pro for an ad-free experience and exclusive creator tools.</Text>
+              <TouchableOpacity style={styles.mockAdBtn}>
+                <Text style={styles.mockAdBtnText}>LEARN MORE</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.bannerAdWrapper}>
+          <BannerAdView size="MEDIUM_RECTANGLE" />
+        </View>
       </View>
 
       {/* Top Controls */}
@@ -134,6 +156,65 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
+  },
+  mockAdWrapper: {
+    width: '100%',
+    maxWidth: 400,
+    aspectRatio: 16 / 9,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#1a1a1a',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+  },
+  mockAdImage: {
+    width: '100%',
+    height: '100%',
+  },
+  mockAdOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  mockAdBranding: {
+    alignItems: 'center',
+    textAlign: 'center',
+  },
+  mockAdTitle: {
+    color: 'white',
+    fontSize: 22,
+    fontWeight: '900',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  mockAdDesc: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 18,
+  },
+  mockAdBtn: {
+    backgroundColor: colors.dark.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 6,
+    marginTop: 15,
+  },
+  mockAdBtnText: {
+    color: 'white',
+    fontWeight: '900',
+    fontSize: 12,
+  },
+  bannerAdWrapper: {
+    position: 'absolute',
+    opacity: 0, // Keep AdMob hidden while it fails/loads
   },
   topBar: {
     position: 'absolute',

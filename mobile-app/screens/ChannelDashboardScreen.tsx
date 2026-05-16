@@ -9,27 +9,66 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { StatsCard } from "../components/StatsCard";
-import { DashboardCard } from "../components/DashboardCard";
-import { Button } from "../components/Button";
+import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
 import { Avatar } from "../components/Avatar";
-import { VideoCard } from "../components/VideoCard";
 import { colors, typography } from "../theme";
-import { layout, MOCK_DATA } from "../constants";
+import { layout } from "../constants";
 import { ScreenWrapper } from "../components/ScreenWrapper";
-
 import { useAuth } from "../context/AuthContext";
 import { channelService } from "../services/channelService";
 import { earningsService } from "../services/earningsService";
-
 import { formatViews } from "../utils/videoUtils";
+
+const { width } = Dimensions.get("window");
+
+// Helper components moved inside or ensured they have access to styles
+const QuickAction = ({ icon, label, color, onPress }: any) => (
+  <TouchableOpacity style={styles.actionItem} onPress={onPress}>
+    <View style={[styles.actionIcon, { backgroundColor: color + "20" }]}>
+      <Ionicons name={icon} size={24} color={color} />
+    </View>
+    <Text style={styles.actionLabel}>{label}</Text>
+  </TouchableOpacity>
+);
+
+const GlassStatCard = ({ label, value, icon, trend }: any) => (
+  <View style={styles.glassCard}>
+    <View style={styles.glassHeader}>
+      <Ionicons name={icon} size={18} color={colors.dark.textSecondary} />
+      <Text style={styles.trendText}>{trend}</Text>
+    </View>
+    <Text style={styles.glassValue}>{value}</Text>
+    <Text style={styles.glassLabel}>{label}</Text>
+  </View>
+);
+
+const TipCard = ({ title, desc, image }: any) => (
+  <TouchableOpacity style={styles.tipCard} activeOpacity={0.8}>
+    <Image source={{ uri: image }} style={styles.tipImage} />
+    <View style={styles.tipContent}>
+      <Text style={styles.tipTitle}>{title}</Text>
+      <Text style={styles.tipDesc} numberOfLines={2}>
+        {desc}
+      </Text>
+    </View>
+  </TouchableOpacity>
+);
+
+const EmptyState = ({ message, icon = "document-text-outline" }: any) => (
+  <View style={styles.emptyContainer}>
+    <Ionicons name={icon} size={40} color={colors.dark.border} />
+    <Text style={styles.emptyText}>{message}</Text>
+  </View>
+);
 
 export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
   const { user, refreshProfile } = useAuth();
   const [videos, setVideos] = React.useState<any[]>([]);
+  const [comments, setComments] = React.useState<any[]>([]);
   const [stats, setStats] = React.useState<any>(null);
   const [earnings, setEarnings] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
@@ -38,17 +77,18 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
   const fetchDashboardData = React.useCallback(async () => {
     try {
       if (user?.channel) {
-        // Refresh profile first to get latest stats
         await refreshProfile();
-        
-        const [channelVideos, channelEarnings, channelStats] = await Promise.all([
-          channelService.getAllChannelContent(user.channel._id),
-          earningsService.getChannelEarnings(user.channel._id),
-          channelService.getChannelStats(),
-        ]);
+        const [channelVideos, channelEarnings, channelStats, channelComments] =
+          await Promise.all([
+            channelService.getAllChannelContent(user.channel._id),
+            earningsService.getChannelEarnings(user.channel._id),
+            channelService.getChannelStats(),
+            channelService.getCreatorComments(),
+          ]);
         setVideos(channelVideos);
         setEarnings(channelEarnings);
         setStats(channelStats);
+        setComments(channelComments);
       }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -61,18 +101,19 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  const handleUpdateBranding = async (type: 'avatar' | 'banner') => {
+  const handleUpdateBranding = async (type: "avatar" | "banner") => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        alert('Permission required to access media library');
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        alert("Permission required to access media library");
         return;
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
+        mediaTypes: ["images"],
         allowsEditing: true,
-        aspect: type === 'banner' ? [21, 9] : [1, 1],
+        aspect: type === "banner" ? [21, 9] : [1, 1],
         quality: 0.8,
       });
 
@@ -80,26 +121,27 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
         setIsUpdating(true);
         const asset = result.assets[0];
         const formData = new FormData();
-        
-        // Android often needs the URI to remain as is, but some versions need it handled carefully
-        const imageUri = Platform.OS === 'android' ? asset.uri : asset.uri.replace('file://', '');
+        const imageUri =
+          Platform.OS === "android"
+            ? asset.uri
+            : asset.uri.replace("file://", "");
 
         formData.append(type, {
           uri: imageUri,
           name: `${type}.jpg`,
-          type: asset.mimeType || 'image/jpeg',
+          type: asset.mimeType || "image/jpeg",
         } as any);
-
-        console.log(`Starting ${type} upload:`, imageUri);
 
         await channelService.updateChannel(user.channel._id, formData);
         await refreshProfile();
-        Alert.alert('Success', `${type.charAt(0).toUpperCase() + type.slice(1)} updated successfully!`);
+        Alert.alert(
+          "Success",
+          `${type.charAt(0).toUpperCase() + type.slice(1)} updated successfully!`,
+        );
       }
     } catch (error: any) {
       console.error(`Error updating ${type}:`, error);
-      const errorMsg = error.response?.data?.message || error.message || 'Unknown error';
-      Alert.alert('Upload Failed', `Could not update ${type}: ${errorMsg}`);
+      Alert.alert("Upload Failed", `Could not update ${type}`);
     } finally {
       setIsUpdating(false);
     }
@@ -108,9 +150,7 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
   if (loading)
     return (
       <ScreenWrapper>
-        <View
-          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-        >
+        <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={colors.dark.primary} />
         </View>
       </ScreenWrapper>
@@ -118,531 +158,695 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
 
   return (
     <ScreenWrapper>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color={colors.dark.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Creator Studio</Text>
-      </View>
-
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
+        stickyHeaderIndices={[0]}
       >
-        {/* Analytics Summary */}
-        <DashboardCard style={styles.section}>
-          <Text style={styles.sectionTitle}>Channel Analytics</Text>
-          <Text style={styles.sectionSubtitle}>Current subscribers</Text>
-          <Text style={styles.largeValue}>
-            {formatViews(stats?.subscribers || 0)}
-          </Text>
-          <View style={styles.summaryStats}>
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>Views</Text>
-              <Text style={styles.summaryValue}>
-                {formatViews(stats?.totalViews || 0)}
-              </Text>
-            </View>
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>Likes</Text>
-              <Text style={styles.summaryValue}>
-                {formatViews(stats?.totalLikes || 0)}
-              </Text>
-            </View>
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>Comments</Text>
-              <Text style={styles.summaryValue}>
-                {formatViews(stats?.totalComments || 0)}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.divider} />
-
-          <TouchableOpacity style={styles.analyticsLink}>
-            <Text style={styles.analyticsLinkText}>SEE CHANNEL ANALYTICS</Text>
-          </TouchableOpacity>
-        </DashboardCard>
-
-        {/* Branding & Identity */}
-        <DashboardCard style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Branding</Text>
-            {isUpdating && <ActivityIndicator size="small" color={colors.dark.primary} />}
-          </View>
-          
-          <View style={styles.brandingContainer}>
-            <TouchableOpacity 
-              style={styles.bannerPreview} 
-              onPress={() => handleUpdateBranding('banner')}
-              disabled={isUpdating}
+        {/* Next-Gen Command Center Header */}
+        <View style={styles.floatingHeader}>
+          <View style={styles.headerIdentity}>
+            <TouchableOpacity
+              onPress={() =>
+                navigation.navigate("MainTabs", { screen: "Profile" })
+              }
+              style={styles.headerAvatarWrapper}
             >
-              <Image 
-                source={{ uri: user?.channel?.banner || 'https://via.placeholder.com/800x200' }} 
-                style={styles.dashboardBanner} 
+              <Avatar
+                uri={user?.avatar}
+                size={36}
+                style={styles.headerAvatar}
               />
-              <View style={styles.bannerEditOverlay}>
-                <Ionicons name="camera" size={24} color="white" />
-                <Text style={styles.overlayText}>Change Banner</Text>
-              </View>
+              <View style={styles.onlineDot} />
             </TouchableOpacity>
-
-            <View style={styles.avatarRow}>
-              <TouchableOpacity 
-                style={styles.avatarPicker} 
-                onPress={() => handleUpdateBranding('avatar')}
-                disabled={isUpdating}
-              >
-                <Avatar uri={user?.channel?.avatar} name={user?.channel?.name} size={64} />
-                <View style={styles.avatarEditBadge}>
-                  <Ionicons name="camera" size={14} color="white" />
+            <View style={styles.headerInfo}>
+              <View style={styles.brandRow}>
+                <Text style={styles.headerBrandText}>Studio</Text>
+                <View style={styles.headerBadge}>
+                  <Text style={styles.badgeText}>BETA</Text>
                 </View>
-              </TouchableOpacity>
-              <View style={styles.brandingText}>
-                <Text style={styles.brandingName}>{user?.channel?.name}</Text>
-                <Text style={styles.brandingSub}>Update your channel's public identity</Text>
               </View>
+              <Text style={styles.headerSubText}>{user?.channel?.name}</Text>
             </View>
           </View>
-        </DashboardCard>
 
-        {/* Quick Actions */}
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={styles.studioActionBtn}
-            onPress={() => navigation.navigate("Upload")}
-          >
-            <View
-              style={[
-                styles.actionIconCircle,
-                { backgroundColor: colors.dark.primary },
-              ]}
-            >
-              <Ionicons name="add" size={24} color={colors.dark.white} />
-            </View>
-            <Text style={styles.actionBtnLabel}>Upload</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.studioActionBtn}
-            onPress={() => navigation.navigate("Shorts")}
-          >
-            <View
-              style={[styles.actionIconCircle, { backgroundColor: "#FF5722" }]}
-            >
-              <Ionicons name="flash" size={20} color={colors.dark.white} />
-            </View>
-            <Text style={styles.actionBtnLabel}>Shorts</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.studioActionBtn}
-            onPress={() =>
-              navigation.navigate("ChannelEdit", {
-                channel: user?.channel,
-              })
-            }
-          >
-            <View
-              style={[
-                styles.actionIconCircle,
-                { backgroundColor: colors.dark.surface },
-              ]}
-            >
-              <Ionicons name="settings-outline" size={20} color={colors.dark.text} />
-            </View>
-            <Text style={styles.actionBtnLabel}>Settings</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Latest Video Performance */}
-        {videos.length > 0 && (
-          <DashboardCard style={styles.section}>
-            <Text style={styles.sectionTitle}>Latest Video Performance</Text>
-            <View style={styles.latestVideoHeader}>
-              <Image
-                source={{
-                  uri:
-                    videos[0].thumbnailUrl ||
-                    "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?q=80&w=800&auto=format&fit=crop",
-                }}
-                style={styles.latestThumb}
-              />
-              <Text style={styles.latestTitle} numberOfLines={2}>
-                {videos[0].title}
-              </Text>
-            </View>
-            <View style={styles.statsList}>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>Views</Text>
-                <Text style={styles.statValue}>
-                  {formatViews(videos[0].views || 0)}
-                </Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>Avg. view duration</Text>
-                <Text style={styles.statValue}>1:42 (45%)</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>
-                  Impressions click-through rate
-                </Text>
-                <Text style={styles.statValue}>8.4%</Text>
-              </View>
-            </View>
-            <TouchableOpacity style={styles.analyticsLink}>
-              <Text style={styles.analyticsLinkText}>
-                GO TO VIDEO ANALYTICS
-              </Text>
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.glassActionBtn}>
+              <Ionicons name="search-outline" size={20} color="white" />
             </TouchableOpacity>
-          </DashboardCard>
-        )}
-
-        {/* Monetization Section */}
-        <DashboardCard style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Monetization</Text>
-            <Ionicons
-              name={earnings?.eligible ? "checkmark-circle" : "lock-closed"}
-              size={20}
-              color={earnings?.eligible ? "#4CAF50" : colors.dark.textSecondary}
-            />
+            <TouchableOpacity
+              style={styles.glassActionBtn}
+              onPress={() => navigation.navigate("Notifications")}
+            >
+              <Ionicons name="notifications-outline" size={20} color="white" />
+              <View style={styles.activeNotifDot} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.closeBtn}
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="close" size={24} color="white" />
+            </TouchableOpacity>
           </View>
-          {earnings?.eligible ? (
-            <View>
-              <Text style={styles.largeValue}>₹{earnings.earnings}</Text>
-              <Text style={styles.sectionSubtitle}>
-                Total Estimated Earnings
-              </Text>
-              <Button
-                title="Withdraw Funds"
-                onPress={() => navigation.navigate("Withdrawal")}
-                style={{ marginTop: 10 }}
-              />
-            </View>
-          ) : (
-            <View>
-              <Text style={styles.sectionSubtitle}>
-                Not yet eligible for monetization.
-              </Text>
-              <View style={styles.progressContainer}>
-                <View
-                  style={[
-                    styles.progressBar,
-                    {
-                      width: `${Math.min(100, (user?.channel?.subscribersCount || 0) / 20)}%`,
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={styles.progressText}>
-                {user?.channel?.subscribersCount || 0} / 2000 subscribers
-                required
-              </Text>
-            </View>
-          )}
-        </DashboardCard>
-
-        {/* Published Content */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Published Content</Text>
-          <TouchableOpacity onPress={() => navigation.navigate("YourVideos")}>
-            <Text style={styles.seeAllText}>SEE ALL</Text>
-          </TouchableOpacity>
         </View>
 
-        {videos.slice(0, 3).map((item) => (
-          <View key={item._id} style={styles.contentItem}>
+        {/* Hero Section */}
+        <View style={styles.heroSection}>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => handleUpdateBranding("banner")}
+            style={styles.bannerContainer}
+          >
             <Image
               source={{
-                uri: item.thumbnailUrl || "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?q=80&w=400&auto=format&fit=crop",
+                uri:
+                  user?.channel?.banner ||
+                  "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=1000",
               }}
-              style={styles.contentThumb}
+              style={styles.heroBanner}
             />
-            <View style={styles.contentInfo}>
-              <Text style={styles.contentTitle} numberOfLines={2}>
-                {item.title}
-              </Text>
-              <Text style={styles.contentStats}>
-                {formatViews(item.views || 0)} views •{" "}
-                {new Date(item.createdAt).toLocaleDateString()}
+            <LinearGradient
+              colors={["transparent", "rgba(15,15,15,0.9)"]}
+              style={styles.bannerGradient}
+            />
+            <View style={styles.bannerEditIcon}>
+              <Ionicons name="camera" size={20} color="white" />
+            </View>
+          </TouchableOpacity>
+
+          <View style={styles.profileOverlay}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => handleUpdateBranding("avatar")}
+              style={styles.avatarWrapper}
+            >
+              <Avatar
+                uri={user?.channel?.avatar}
+                name={user?.channel?.name}
+                size={90}
+                style={styles.mainAvatar}
+              />
+              <View style={styles.avatarEditBadge}>
+                <Ionicons name="camera" size={16} color="white" />
+              </View>
+            </TouchableOpacity>
+            <View style={styles.profileText}>
+              <Text style={styles.channelName}>{user?.channel?.name}</Text>
+              <Text style={styles.subCount}>
+                {formatViews(stats?.subscribers || 0)} subscribers
               </Text>
             </View>
-            <TouchableOpacity style={styles.contentAction}>
-              <Ionicons
-                name="ellipsis-vertical"
-                size={20}
-                color={colors.dark.textSecondary}
-              />
-            </TouchableOpacity>
           </View>
-        ))}
+        </View>
+
+        <View style={styles.mainContent}>
+          {/* Quick Actions */}
+          <View style={styles.quickActionsGrid}>
+            <QuickAction
+              icon="add-circle"
+              label="Upload"
+              color="#FF0000"
+              onPress={() =>
+                navigation.navigate("MainTabs", { screen: "Upload" })
+              }
+            />
+            <QuickAction
+              icon="stats-chart"
+              label="Analytics"
+              color="#00C853"
+              onPress={() => {}}
+            />
+            <QuickAction
+              icon="wallet"
+              label="Payout"
+              color="#2979FF"
+              onPress={() => navigation.navigate("Withdrawal")}
+            />
+            <QuickAction
+              icon="settings"
+              label="Settings"
+              color="#757575"
+              onPress={() =>
+                navigation.navigate("ChannelEdit", { channel: user?.channel })
+              }
+            />
+          </View>
+
+          {/* Stats Row */}
+          <View style={styles.statsRow}>
+            <GlassStatCard
+              label="Total Views"
+              value={formatViews(stats?.totalViews || 0)}
+              icon="eye-outline"
+              trend="+12%"
+            />
+            <GlassStatCard
+              label="Est. Revenue"
+              value={`₹${earnings?.earnings || 0}`}
+              icon="cash-outline"
+              trend="+5%"
+            />
+          </View>
+
+          {/* Latest Video */}
+          <View style={styles.latestVideoSection}>
+            <Text style={styles.sectionHeading}>Latest Performance</Text>
+            {videos.length > 0 ? (
+              <TouchableOpacity
+                style={styles.latestCard}
+                activeOpacity={0.9}
+                onPress={() =>
+                  navigation.navigate("VideoDetails", { video: videos[0] })
+                }
+              >
+                <Image
+                  source={{
+                    uri:
+                      videos[0].thumbnailUrl ||
+                      "https://via.placeholder.com/400x225",
+                  }}
+                  style={styles.latestThumb}
+                />
+                <View style={styles.latestInfo}>
+                  <Text style={styles.latestTitle} numberOfLines={2}>
+                    {videos[0].title}
+                  </Text>
+                  <View style={styles.latestStatsRow}>
+                    <View style={styles.inlineStat}>
+                      <Ionicons
+                        name="eye"
+                        size={14}
+                        color={colors.dark.textSecondary}
+                      />
+                      <Text style={styles.inlineStatText}>
+                        {formatViews(videos[0].views || 0)}
+                      </Text>
+                    </View>
+                    <View style={styles.inlineStat}>
+                      <Ionicons
+                        name="heart"
+                        size={14}
+                        color={colors.dark.textSecondary}
+                      />
+                      <Text style={styles.inlineStatText}>
+                        {formatViews(videos[0].likesCount || 0)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={colors.dark.textSecondary}
+                />
+              </TouchableOpacity>
+            ) : (
+              <EmptyState
+                message="No videos uploaded yet"
+                icon="videocam-off-outline"
+              />
+            )}
+          </View>
+
+          {/* Recent Content */}
+          <View style={styles.contentSection}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionHeading}>Recent Content</Text>
+              <TouchableOpacity
+                onPress={() => navigation.navigate("YourVideos")}
+              >
+                <Text style={styles.seeAllText}>View All</Text>
+              </TouchableOpacity>
+            </View>
+            {videos.length > 0 ? (
+              videos.slice(0, 4).map((item) => (
+                <TouchableOpacity
+                  key={item._id}
+                  style={styles.contentRow}
+                  activeOpacity={0.7}
+                  onPress={() =>
+                    navigation.navigate("VideoDetails", { video: item })
+                  }
+                >
+                  <View style={styles.contentThumbWrapper}>
+                    <Image
+                      source={{ uri: item.thumbnailUrl }}
+                      style={styles.contentThumbSm}
+                    />
+                    <View style={styles.durationBadge}>
+                      <Text style={styles.durationText}>12:04</Text>
+                    </View>
+                  </View>
+                  <View style={styles.contentInfoSm}>
+                    <Text style={styles.contentTitleSm} numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                    <Text style={styles.contentMetaSm}>
+                      {formatViews(item.views || 0)} views •{" "}
+                      {new Date(item.createdAt).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name="analytics"
+                    size={18}
+                    color={colors.dark.primary}
+                  />
+                </TouchableOpacity>
+              ))
+            ) : (
+              <EmptyState message="Upload your first video to see stats here" />
+            )}
+          </View>
+
+          {/* Real Comments Section */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionHeading}>Recent Comments</Text>
+              <TouchableOpacity>
+                <Text style={styles.seeAllText}>VIEW ALL</Text>
+              </TouchableOpacity>
+            </View>
+            {comments.length > 0 ? (
+              comments.slice(0, 3).map((comment) => (
+                <View key={comment._id} style={styles.commentCard}>
+                  <View style={styles.commentHeader}>
+                    <Avatar
+                      uri={comment.user?.avatar}
+                      name={comment.user?.name}
+                      size={24}
+                    />
+                    <Text style={styles.commentAuthor}>
+                      {comment.user?.name || "User"}
+                    </Text>
+                    <Text style={styles.commentTime}>
+                      {new Date(comment.createdAt).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  <Text style={styles.commentText} numberOfLines={2}>
+                    {comment.text}
+                  </Text>
+                  <Text style={styles.commentVideoTitle}>
+                    on {comment.video?.title}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <EmptyState
+                message="No comments yet"
+                icon="chatbubbles-outline"
+              />
+            )}
+          </View>
+
+          {/* Creator Tips */}
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionHeading}>Ideas for you</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.tipsScroll}
+            >
+              <TipCard
+                title="Boost your views"
+                desc="Learn how to make better thumbnails that get clicked."
+                image="https://images.unsplash.com/photo-1492724441997-5dc865305da7?q=80&w=400"
+              />
+              <TipCard
+                title="Monetization Guide"
+                desc="New ways to earn from your short-form content."
+                image="https://images.unsplash.com/photo-1554224155-6726b3ff858f?q=80&w=400"
+              />
+            </ScrollView>
+          </View>
+
+          <View style={styles.studioFooter}>
+            <Ionicons
+              name="logo-youtube"
+              size={24}
+              color={colors.dark.textSecondary}
+              style={{ opacity: 0.5 }}
+            />
+            <Text style={styles.footerText}>Made for Creators with Love</Text>
+          </View>
+        </View>
       </ScrollView>
+      {isUpdating && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="white" />
+          <Text style={styles.loadingText}>Updating branding...</Text>
+        </View>
+      )}
     </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
-  header: {
+  centerContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: colors.dark.background,
+  },
+  floatingHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: layout.spacing.md,
-    paddingVertical: layout.spacing.sm,
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: "rgba(15, 15, 15, 0.95)", // Sleek dark glass
     borderBottomWidth: 1,
-    borderBottomColor: colors.dark.border,
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+    zIndex: 1000,
   },
+  headerIdentity: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  headerAvatarWrapper: {
+    position: "relative",
+  },
+  headerAvatar: {
+    borderWidth: 1.5,
+    borderColor: colors.dark.primary,
+  },
+  onlineDot: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#00E676",
+    borderWidth: 2,
+    borderColor: "#0f0f0f",
+  },
+  headerInfo: {
+    marginLeft: 12,
+  },
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  headerBrandText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "900",
+    letterSpacing: -0.5,
+  },
+  headerBadge: {
+    backgroundColor: colors.dark.primary,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+    marginLeft: 6,
+  },
+  badgeText: {
+    color: "white",
+    fontSize: 8,
+    fontWeight: "900",
+  },
+  headerSubText: {
+    color: "rgba(255, 255, 255, 0.6)",
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: -2,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  glassActionBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
+  },
+  activeNotifDot: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.dark.primary,
+    borderWidth: 1.5,
+    borderColor: "#0f0f0f",
+  },
+  closeBtn: {
+    marginLeft: 4,
+    padding: 4,
+  },
+  heroSection: { height: 220, position: "relative" },
+  bannerContainer: {
+    width: "100%",
+    height: 160,
+    backgroundColor: colors.dark.surface,
+  },
+  heroBanner: { width: "100%", height: "100%" },
+  bannerGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  bannerEditIcon: {
+    position: "absolute",
+    top: 15,
+    right: 15,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    padding: 8,
+    borderRadius: 20,
+  },
+  profileOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 20,
+    flexDirection: "row",
+    alignItems: "flex-end",
+  },
+  avatarWrapper: {
+    position: "relative",
+    padding: 4,
+    backgroundColor: colors.dark.background,
+    borderRadius: 50,
+  },
+  mainAvatar: { borderWidth: 3, borderColor: colors.dark.background },
+  avatarEditBadge: {
+    position: "absolute",
+    bottom: 5,
+    right: 5,
+    backgroundColor: colors.dark.primary,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: colors.dark.background,
+  },
+  profileText: { marginLeft: 15, marginBottom: 10 },
+  channelName: { color: colors.dark.text, fontSize: 22, fontWeight: "900" },
+  subCount: { color: colors.dark.textSecondary, fontSize: 14, marginTop: 2 },
+  mainContent: { padding: 20 },
+  quickActionsGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 30,
+    backgroundColor: colors.dark.surface,
+    padding: 15,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderBottomWidth: 3,
+    borderColor: colors.dark.border,
+  },
+  actionItem: { alignItems: "center", width: (width - 100) / 4 },
+  actionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  actionLabel: { color: colors.dark.text, fontSize: 11, fontWeight: "600" },
+  sectionHeading: {
+    color: colors.dark.text,
+    fontSize: 18,
+    fontWeight: "800",
+    marginBottom: 15,
+  },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 30,
+    gap: 15,
+  },
+  glassCard: {
+    flex: 1,
+    backgroundColor: colors.dark.surface,
+    padding: 15,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  glassHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  trendText: { color: "#00C853", fontSize: 12, fontWeight: "bold" },
+  glassValue: { color: colors.dark.text, fontSize: 24, fontWeight: "900" },
+  glassLabel: { color: colors.dark.textSecondary, fontSize: 12, marginTop: 4 },
+  latestVideoSection: { marginBottom: 30 },
+  latestCard: {
+    flexDirection: "row",
+    backgroundColor: colors.dark.surface,
+    padding: 12,
+    borderRadius: 20,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.dark.border,
+  },
+  latestThumb: {
+    width: 100,
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: "#333",
+  },
+  latestInfo: { flex: 1, marginLeft: 15 },
+  latestTitle: {
+    color: colors.dark.text,
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  latestStatsRow: { flexDirection: "row", gap: 12 },
+  inlineStat: { flexDirection: "row", alignItems: "center", gap: 4 },
+  inlineStatText: { color: colors.dark.textSecondary, fontSize: 12 },
+  contentSection: { marginBottom: 30 },
   sectionHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: layout.spacing.md,
-    marginBottom: layout.spacing.lg,
+    marginBottom: 15,
   },
-  backBtn: {
-    marginRight: layout.spacing.md,
-  },
-  headerTitle: {
-    color: colors.dark.text,
-    fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.bold as "700",
-  },
-  content: {
-    padding: layout.spacing.md,
-    paddingBottom: layout.spacing.xl,
-  },
-  section: {
-    marginBottom: layout.spacing.lg,
-  },
-  sectionHeader: {
+  seeAllText: { color: colors.dark.primary, fontWeight: "bold", fontSize: 14 },
+  contentRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: layout.spacing.md,
+    marginBottom: 15,
+    backgroundColor: "rgba(255,255,255,0.03)",
+    padding: 8,
+    borderRadius: 15,
   },
-  sectionTitle: {
-    color: colors.dark.text,
-    fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.bold as "700",
+  contentThumbWrapper: { position: "relative" },
+  contentThumbSm: {
+    width: 80,
+    height: 45,
+    borderRadius: 8,
+    backgroundColor: "#333",
   },
-  sectionSubtitle: {
+  durationBadge: {
+    position: "absolute",
+    bottom: 2,
+    right: 2,
+    backgroundColor: "rgba(0,0,0,0.8)",
+    paddingHorizontal: 4,
+    borderRadius: 4,
+  },
+  durationText: { color: "white", fontSize: 10, fontWeight: "bold" },
+  contentInfoSm: { flex: 1, marginLeft: 12 },
+  contentTitleSm: { color: colors.dark.text, fontSize: 14, fontWeight: "600" },
+  contentMetaSm: {
     color: colors.dark.textSecondary,
-    fontSize: typography.sizes.sm,
-    marginBottom: 8,
-  },
-  seeAllText: {
-    color: colors.dark.primary,
-    fontSize: typography.sizes.sm,
-    fontWeight: "600",
-  },
-  largeValue: {
-    color: colors.dark.text,
-    fontSize: 36,
-    fontWeight: typography.weights.bold as "700",
-    marginTop: 4,
-  },
-  summaryStats: {
-    flexDirection: "row",
-    marginTop: 20,
-    gap: 20,
-  },
-  summaryItem: {
-    flex: 1,
-  },
-  summaryLabel: {
-    color: colors.dark.textSecondary,
-    fontSize: 11,
-    textTransform: "uppercase",
-  },
-  summaryValue: {
-    color: colors.dark.text,
-    fontSize: 18,
-    fontWeight: "700",
+    fontSize: 12,
     marginTop: 2,
   },
-  summaryChange: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  analyticsLink: {
-    paddingVertical: 10,
-    alignItems: "center",
-  },
-  analyticsLinkText: {
-    color: colors.dark.primary,
-    fontSize: typography.sizes.sm,
-    fontWeight: "700",
-    letterSpacing: 1,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.dark.border,
-    marginVertical: layout.spacing.md,
-  },
-  actionsRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: layout.spacing.lg,
+  sectionContainer: { marginBottom: 30 },
+  commentCard: {
     backgroundColor: colors.dark.surface,
-    paddingVertical: 16,
-    borderRadius: 12,
+    padding: 15,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.dark.border,
+    marginBottom: 12,
   },
-  studioActionBtn: {
+  commentHeader: {
+    flexDirection: "row",
     alignItems: "center",
+    marginBottom: 8,
     gap: 8,
   },
-  actionIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  actionBtnLabel: {
-    color: colors.dark.text,
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  latestVideoHeader: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 16,
-  },
-  latestThumb: {
-    width: 120,
-    height: 68,
-    borderRadius: 4,
-    backgroundColor: colors.dark.border,
-  },
-  latestTitle: {
+  commentAuthor: { color: colors.dark.text, fontSize: 13, fontWeight: "700" },
+  commentTime: { color: colors.dark.textSecondary, fontSize: 11 },
+  commentText: {
     color: colors.dark.text,
     fontSize: 14,
-    fontWeight: "600",
-    flex: 1,
-  },
-  statsList: {
-    gap: 12,
-    marginBottom: 16,
-  },
-  statItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  statLabel: {
-    color: colors.dark.textSecondary,
-    fontSize: 13,
-  },
-  statValue: {
-    color: colors.dark.text,
-    fontSize: 13,
-    fontWeight: "500",
-  },
-  contentItem: {
-    flexDirection: "row",
-    backgroundColor: colors.dark.surface,
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 10,
-    alignItems: "center",
-  },
-  contentThumb: {
-    width: 100,
-    height: 56,
-    borderRadius: 4,
-    backgroundColor: colors.dark.border,
-  },
-  contentInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  contentTitle: {
-    color: colors.dark.text,
-    fontSize: 14,
-    fontWeight: "500",
+    lineHeight: 20,
     marginBottom: 4,
   },
-  contentStats: {
-    color: colors.dark.textSecondary,
-    fontSize: 12,
-  },
-  contentAction: {
-    padding: 8,
-  },
-  progressContainer: {
-    height: 8,
-    backgroundColor: colors.dark.border,
-    borderRadius: 4,
-    marginVertical: 12,
-    overflow: "hidden",
-  },
-  progressBar: {
-    height: "100%",
-    backgroundColor: colors.dark.primary,
-  },
-  progressText: {
+  commentVideoTitle: {
     color: colors.dark.textSecondary,
     fontSize: 11,
+    fontStyle: "italic",
   },
-  brandingContainer: {
-    marginTop: 8,
+  tipsScroll: { marginTop: 10 },
+  tipCard: {
+    width: 200,
+    backgroundColor: colors.dark.surface,
+    borderRadius: 20,
+    marginRight: 15,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.dark.border,
   },
-  bannerPreview: {
-    width: '100%',
-    height: 100,
-    borderRadius: 8,
-    overflow: 'hidden',
-    marginBottom: 16,
-    position: 'relative',
-  },
-  dashboardBanner: {
-    width: '100%',
-    height: '100%',
-  },
-  bannerEditOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 4,
-  },
-  overlayText: {
-    color: 'white',
-    fontSize: 10,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  avatarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatarPicker: {
-    position: 'relative',
-  },
-  avatarEditBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: colors.dark.primary,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: colors.dark.surface,
-  },
-  brandingText: {
-    marginLeft: 16,
-    flex: 1,
-  },
-  brandingName: {
+  tipImage: { width: "100%", height: 100 },
+  tipContent: { padding: 12 },
+  tipTitle: {
     color: colors.dark.text,
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: "800",
+    marginBottom: 4,
   },
-  brandingSub: {
+  tipDesc: { color: colors.dark.textSecondary, fontSize: 12, lineHeight: 16 },
+  studioFooter: { alignItems: "center", paddingVertical: 40, gap: 10 },
+  footerText: {
     color: colors.dark.textSecondary,
     fontSize: 12,
-    marginTop: 2,
+    fontWeight: "600",
+    opacity: 0.5,
+  },
+  emptyContainer: {
+    alignItems: "center",
+    paddingVertical: 20,
+    backgroundColor: "rgba(255,255,255,0.02)",
+    borderRadius: 20,
+    borderStyle: "dashed",
+    borderWidth: 1,
+    borderColor: colors.dark.border,
+  },
+  emptyText: { color: colors.dark.textSecondary, fontSize: 13, marginTop: 10 },
+  loadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  },
+  loadingText: {
+    color: "white",
+    marginTop: 15,
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

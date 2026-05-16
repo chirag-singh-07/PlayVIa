@@ -53,7 +53,10 @@ export const YourVideosScreen: React.FC<any> = ({ navigation }) => {
         keyExtractor={(item) => item._id}
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.videoItem} onPress={() => navigation.navigate('VideoPlayer', { video: item })}>
+          <TouchableOpacity 
+            style={styles.videoItem} 
+            onPress={() => navigation.navigate('VideoDetails', { video: item })}
+          >
             <View style={styles.thumbnailContainer}>
               <Image source={{ uri: item.thumbnailUrl }} style={styles.thumbnail} />
               <View style={styles.durationBadge}>

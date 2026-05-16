@@ -111,6 +111,18 @@ const getVideoById = asyncHandler(async (req, res) => {
         earningsDoc.lastUpdated = Date.now();
         await earningsDoc.save();
       }
+
+      // ─── View Milestones Notification ────────────────────────────────────
+      const milestones = [50, 500, 5000, 50000, 100000, 1000000];
+      if (milestones.includes(video.views)) {
+        const Notification = require('../models/Notification');
+        await Notification.create({
+          user: channel.owner._id,
+          type: 'milestone',
+          message: `Congratulations! Your video "${video.title}" just hit ${video.views} views! 🎉`,
+          relatedVideo: video._id,
+        });
+      }
     }
 
     res.json(video);
@@ -277,6 +289,62 @@ const updateVideoDuration = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Update video details
+// @route   PUT /api/video/:id
+// @access  Private
+const updateVideo = asyncHandler(async (req, res) => {
+  const { title, description, category, tags } = req.body;
+  const video = await Video.findById(req.params.id);
+
+  if (video) {
+    // Check ownership
+    const channel = await Channel.findOne({ owner: req.user._id });
+    if (!channel || video.channel.toString() !== channel._id.toString()) {
+      res.status(401);
+      throw new Error('You are not authorized to edit this video');
+    }
+
+    video.title = title || video.title;
+    video.description = description || video.description;
+    video.category = category || video.category;
+    if (tags) {
+      video.tags = tags.split(',').map(tag => tag.trim());
+    }
+
+    if (req.files && req.files.thumbnail) {
+      video.thumbnailUrl = req.files.thumbnail[0].location;
+    }
+
+    const updatedVideo = await video.save();
+    res.json(updatedVideo);
+  } else {
+    res.status(404);
+    throw new Error('Video not found');
+  }
+});
+
+// @desc    Delete video
+// @route   DELETE /api/video/:id
+// @access  Private
+const deleteVideo = asyncHandler(async (req, res) => {
+  const video = await Video.findById(req.params.id);
+
+  if (video) {
+    // Check ownership
+    const channel = await Channel.findOne({ owner: req.user._id });
+    if (!channel || video.channel.toString() !== channel._id.toString()) {
+      res.status(401);
+      throw new Error('You are not authorized to delete this video');
+    }
+
+    await video.deleteOne();
+    res.json({ message: 'Video removed' });
+  } else {
+    res.status(404);
+    throw new Error('Video not found');
+  }
+});
+
 module.exports = {
   uploadVideo,
   getVideoById,
@@ -286,4 +354,6 @@ module.exports = {
   getTrendingVideos,
   getCategories,
   updateVideoDuration,
+  updateVideo,
+  deleteVideo,
 };

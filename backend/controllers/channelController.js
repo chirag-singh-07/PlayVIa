@@ -136,7 +136,12 @@ const updateChannel = asyncHandler(async (req, res) => {
       channel.banner = req.files.banner[0].location;
     }
     if (req.files.avatar) {
-      channel.avatar = req.files.avatar[0].location;
+      const avatarUrl = req.files.avatar[0].location;
+      channel.avatar = avatarUrl;
+      
+      // Sync with User model
+      const User = require('../models/User');
+      await User.findByIdAndUpdate(req.user._id, { avatar: avatarUrl });
     }
   }
 

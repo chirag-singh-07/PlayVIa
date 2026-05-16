@@ -38,6 +38,16 @@ const toggleSubscribe = asyncHandler(async (req, res) => {
     });
     channel.subscribersCount += 1;
     await channel.save();
+
+    // Notify channel owner
+    const Notification = require('../models/Notification');
+    await Notification.create({
+      user: channel.owner,
+      type: 'subscriber',
+      message: `${req.user.username} subscribed to your channel! 🚀`,
+      sender: req.user._id,
+    });
+
     res.status(201).json({ message: 'Subscribed successfully', subscribersCount: channel.subscribersCount });
   }
 });

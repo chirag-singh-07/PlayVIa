@@ -48,5 +48,10 @@ export const channelService = {
   getChannelStats: async () => {
     const response = await api.get('/channel/stats/me');
     return response.data;
+  },
+  
+  getCreatorComments: async () => {
+    const response = await api.get('/creator/comments');
+    return response.data;
   }
 };

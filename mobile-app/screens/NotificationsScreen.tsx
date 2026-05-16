@@ -51,21 +51,45 @@ export const NotificationsScreen: React.FC<any> = ({ navigation }) => {
 
       <FlatList
         data={notifications}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <NotificationItem
-            type={item.type}
-            message={item.message}
-            timestamp={item.timestamp}
-            avatarUri={item.avatarUri}
-            isRead={item.isRead}
-            onPress={() => {
-              if (item.type === 'video') {
-                navigation.navigate('VideoPlayer');
-              }
-            }}
-          />
-        )}
+        keyExtractor={(item) => item._id || item.id}
+        renderItem={({ item }) => {
+          const getIcon = (type: string) => {
+            switch(type) {
+              case 'video': return 'videocam-outline';
+              case 'like': return 'heart-outline';
+              case 'subscriber': return 'person-add-outline';
+              case 'milestone': return 'trophy-outline';
+              case 'comment': return 'chatbubble-outline';
+              default: return 'notifications-outline';
+            }
+          };
+
+          const getIconColor = (type: string) => {
+            switch(type) {
+              case 'milestone': return '#FFD700';
+              case 'like': return '#FF4081';
+              case 'subscriber': return '#00E676';
+              default: return colors.dark.text;
+            }
+          };
+
+          return (
+            <NotificationItem
+              type={item.type}
+              message={item.message}
+              timestamp={new Date(item.createdAt).toLocaleDateString()}
+              avatarUri={item.sender?.avatar || item.relatedVideo?.thumbnailUrl}
+              isRead={item.isRead}
+              icon={getIcon(item.type)}
+              iconColor={getIconColor(item.type)}
+              onPress={() => {
+                if (item.relatedVideo) {
+                  navigation.navigate('VideoPlayer', { video: item.relatedVideo });
+                }
+              }}
+            />
+          );
+        }}
         showsVerticalScrollIndicator={false}
       />
     </ScreenWrapper>

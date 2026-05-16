@@ -54,4 +54,18 @@ export const videoService = {
     const response = await api.put(`/video/${id}/duration`, { duration });
     return response.data;
   },
+
+  updateVideo: async (id: string, formData: FormData) => {
+    const response = await api.put(`/video/${id}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  deleteVideo: async (id: string) => {
+    const response = await api.delete(`/video/${id}`);
+    return response.data;
+  },
 };

@@ -10,28 +10,32 @@ import { ScreenWrapper } from '../components/ScreenWrapper';
 import { subscriptionService } from '../services/subscriptionService';
 import { formatViews, formatTimeAgo, formatDuration } from '../utils/videoUtils';
 
+import { useFocusEffect } from '@react-navigation/native';
+
 export const SubscriptionsScreen: React.FC<any> = ({ navigation }) => {
   const [channels, setChannels] = React.useState<any[]>([]);
   const [videos, setVideos] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  React.useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [subscribedChannels, subscriptionVideos] = await Promise.all([
-          subscriptionService.getSubscribedChannels(),
-          subscriptionService.getSubscriptionVideos()
-        ]);
-        setChannels(subscribedChannels);
-        setVideos(subscriptionVideos);
-      } catch (error) {
-        console.error('Error fetching subscription data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      const fetchData = async () => {
+        try {
+          const [subscribedChannels, subscriptionVideos] = await Promise.all([
+            subscriptionService.getSubscribedChannels(),
+            subscriptionService.getSubscriptionVideos()
+          ]);
+          setChannels(subscribedChannels);
+          setVideos(subscriptionVideos);
+        } catch (error) {
+          console.error('Error fetching subscription data:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchData();
+    }, [])
+  );
 
   if (loading) return (
     <ScreenWrapper>

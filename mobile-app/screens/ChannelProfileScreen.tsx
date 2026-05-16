@@ -171,7 +171,17 @@ export const ChannelProfileScreen: React.FC<any> = ({ navigation, route }) => {
     }
   };
 
-  const isOwnChannel = channelData.owner === currentUser?._id || channelData._id === currentUser?.channel?._id;
+  const isOwnChannel = 
+    channelData.owner === currentUser?._id || 
+    channelData.owner?._id === currentUser?._id || 
+    channelData._id === currentUser?.channel?._id;
+
+  const getBannerUri = () => {
+    if (channelData.banner) return channelData.banner;
+    // Random high-quality banner from Unsplash based on channel name
+    const seed = channelData.name || 'channel';
+    return `https://images.unsplash.com/photo-1504333638930-c8787321eee0?q=80&w=1200&auto=format&fit=crop`; // Generic dark tech banner
+  };
 
   return (
     <ScreenWrapper>
@@ -203,13 +213,13 @@ export const ChannelProfileScreen: React.FC<any> = ({ navigation, route }) => {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Banner */}
         <Image 
-          source={{ uri: channelData.banner || 'https://via.placeholder.com/800x300/202020/404040?text=Banner' }} 
+          source={{ uri: getBannerUri() }} 
           style={styles.banner} 
         />
 
         {/* Channel Info */}
         <View style={styles.infoContainer}>
-          <Avatar uri={channelData.avatar} size={80} style={styles.avatar} />
+          <Avatar uri={channelData.avatar} name={channelData.name} size={80} style={styles.avatar} />
           <Text style={styles.channelName}>{channelData.name}</Text>
           <Text style={styles.channelStats}>
             {channelData.handle ? `${channelData.handle} • ` : ''}

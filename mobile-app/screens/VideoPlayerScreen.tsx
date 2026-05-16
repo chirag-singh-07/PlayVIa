@@ -208,9 +208,16 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
     }
   };
 
+  const isOwner = currentUser?._id === video.channel?.owner;
+
   const toggleSubscribe = async () => {
     if (!isAuthenticated) {
       Alert.alert('Login Required', 'Please login to subscribe.');
+      return;
+    }
+
+    if (isOwner) {
+      navigation.navigate('CreatorStudio'); // Or just return
       return;
     }
 
@@ -402,15 +409,19 @@ export const VideoPlayerScreen: React.FC<any> = ({ route, navigation }) => {
               </View>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={[styles.subscribeBtn, isSubscribed && { backgroundColor: colors.dark.surface }]} 
+              style={[
+                styles.subscribeBtn, 
+                isSubscribed && { backgroundColor: colors.dark.surface },
+                isOwner && { backgroundColor: colors.dark.surface }
+              ]} 
               onPress={toggleSubscribe}
               disabled={isSubscribeSyncing}
             >
               {isSubscribeSyncing ? (
-                <ActivityIndicator size="small" color={isSubscribed ? colors.dark.textSecondary : colors.dark.black} />
+                <ActivityIndicator size="small" color={(isSubscribed || isOwner) ? colors.dark.textSecondary : colors.dark.black} />
               ) : (
-                <Text style={[styles.subscribeText, isSubscribed && { color: colors.dark.textSecondary }]}>
-                  {isSubscribed ? 'Subscribed' : 'Subscribe'}
+                <Text style={[styles.subscribeText, (isSubscribed || isOwner) && { color: colors.dark.textSecondary }]}>
+                  {isOwner ? 'Manage Channel' : (isSubscribed ? 'Subscribed' : 'Subscribe')}
                 </Text>
               )}
             </TouchableOpacity>

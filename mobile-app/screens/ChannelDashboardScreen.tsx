@@ -7,11 +7,15 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  Alert,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { StatsCard } from "../components/StatsCard";
 import { DashboardCard } from "../components/DashboardCard";
 import { Button } from "../components/Button";
+import * as ImagePicker from "expo-image-picker";
+import { Avatar } from "../components/Avatar";
 import { VideoCard } from "../components/VideoCard";
 import { colors, typography } from "../theme";
 import { layout, MOCK_DATA } from "../constants";
@@ -24,30 +28,82 @@ import { earningsService } from "../services/earningsService";
 import { formatViews } from "../utils/videoUtils";
 
 export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const [videos, setVideos] = React.useState<any[]>([]);
+  const [stats, setStats] = React.useState<any>(null);
   const [earnings, setEarnings] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
+  const [isUpdating, setIsUpdating] = React.useState(false);
+
+  const fetchDashboardData = React.useCallback(async () => {
+    try {
+      if (user?.channel) {
+        // Refresh profile first to get latest stats
+        await refreshProfile();
+        
+        const [channelVideos, channelEarnings, channelStats] = await Promise.all([
+          channelService.getAllChannelContent(user.channel._id),
+          earningsService.getChannelEarnings(user.channel._id),
+          channelService.getChannelStats(),
+        ]);
+        setVideos(channelVideos);
+        setEarnings(channelEarnings);
+        setStats(channelStats);
+      }
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.channel?._id]);
 
   React.useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        if (user?.channel) {
-          const [channelVideos, channelEarnings] = await Promise.all([
-            channelService.getAllChannelContent(user.channel._id),
-            earningsService.getChannelEarnings(user.channel._id),
-          ]);
-          setVideos(channelVideos);
-          setEarnings(channelEarnings);
-        }
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchDashboardData();
-  }, [user]);
+  }, [fetchDashboardData]);
+
+  const handleUpdateBranding = async (type: 'avatar' | 'banner') => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        alert('Permission required to access media library');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: type === 'banner' ? [21, 9] : [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && user?.channel) {
+        setIsUpdating(true);
+        const asset = result.assets[0];
+        const formData = new FormData();
+        
+        // Android often needs the URI to remain as is, but some versions need it handled carefully
+        const imageUri = Platform.OS === 'android' ? asset.uri : asset.uri.replace('file://', '');
+
+        formData.append(type, {
+          uri: imageUri,
+          name: `${type}.jpg`,
+          type: asset.mimeType || 'image/jpeg',
+        } as any);
+
+        console.log(`Starting ${type} upload:`, imageUri);
+
+        await channelService.updateChannel(user.channel._id, formData);
+        await refreshProfile();
+        Alert.alert('Success', `${type.charAt(0).toUpperCase() + type.slice(1)} updated successfully!`);
+      }
+    } catch (error: any) {
+      console.error(`Error updating ${type}:`, error);
+      const errorMsg = error.response?.data?.message || error.message || 'Unknown error';
+      Alert.alert('Upload Failed', `Could not update ${type}: ${errorMsg}`);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   if (loading)
     return (
@@ -81,25 +137,25 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
           <Text style={styles.sectionTitle}>Channel Analytics</Text>
           <Text style={styles.sectionSubtitle}>Current subscribers</Text>
           <Text style={styles.largeValue}>
-            {formatViews(user?.channel?.subscribersCount || 0)}
+            {formatViews(stats?.subscribers || 0)}
           </Text>
           <View style={styles.summaryStats}>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>Views</Text>
               <Text style={styles.summaryValue}>
-                {formatViews(user?.channel?.totalViews || 0)}
-              </Text>
-              <Text style={[styles.summaryChange, { color: "#4CAF50" }]}>
-                +12%
+                {formatViews(stats?.totalViews || 0)}
               </Text>
             </View>
             <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>Watch time (hours)</Text>
+              <Text style={styles.summaryLabel}>Likes</Text>
               <Text style={styles.summaryValue}>
-                {((user?.channel?.totalViews || 0) * 0.1).toFixed(1)}
+                {formatViews(stats?.totalLikes || 0)}
               </Text>
-              <Text style={[styles.summaryChange, { color: "#4CAF50" }]}>
-                +5%
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>Comments</Text>
+              <Text style={styles.summaryValue}>
+                {formatViews(stats?.totalComments || 0)}
               </Text>
             </View>
           </View>
@@ -109,6 +165,48 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
           <TouchableOpacity style={styles.analyticsLink}>
             <Text style={styles.analyticsLinkText}>SEE CHANNEL ANALYTICS</Text>
           </TouchableOpacity>
+        </DashboardCard>
+
+        {/* Branding & Identity */}
+        <DashboardCard style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Branding</Text>
+            {isUpdating && <ActivityIndicator size="small" color={colors.dark.primary} />}
+          </View>
+          
+          <View style={styles.brandingContainer}>
+            <TouchableOpacity 
+              style={styles.bannerPreview} 
+              onPress={() => handleUpdateBranding('banner')}
+              disabled={isUpdating}
+            >
+              <Image 
+                source={{ uri: user?.channel?.banner || 'https://via.placeholder.com/800x200' }} 
+                style={styles.dashboardBanner} 
+              />
+              <View style={styles.bannerEditOverlay}>
+                <Ionicons name="camera" size={24} color="white" />
+                <Text style={styles.overlayText}>Change Banner</Text>
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.avatarRow}>
+              <TouchableOpacity 
+                style={styles.avatarPicker} 
+                onPress={() => handleUpdateBranding('avatar')}
+                disabled={isUpdating}
+              >
+                <Avatar uri={user?.channel?.avatar} name={user?.channel?.name} size={64} />
+                <View style={styles.avatarEditBadge}>
+                  <Ionicons name="camera" size={14} color="white" />
+                </View>
+              </TouchableOpacity>
+              <View style={styles.brandingText}>
+                <Text style={styles.brandingName}>{user?.channel?.name}</Text>
+                <Text style={styles.brandingSub}>Update your channel's public identity</Text>
+              </View>
+            </View>
+          </View>
         </DashboardCard>
 
         {/* Quick Actions */}
@@ -141,8 +239,8 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
           <TouchableOpacity
             style={styles.studioActionBtn}
             onPress={() =>
-              navigation.navigate("ChannelProfile", {
-                channelId: user?.channel?._id,
+              navigation.navigate("ChannelEdit", {
+                channel: user?.channel,
               })
             }
           >
@@ -152,9 +250,9 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
                 { backgroundColor: colors.dark.surface },
               ]}
             >
-              <Ionicons name="pencil" size={20} color={colors.dark.text} />
+              <Ionicons name="settings-outline" size={20} color={colors.dark.text} />
             </View>
-            <Text style={styles.actionBtnLabel}>Edit</Text>
+            <Text style={styles.actionBtnLabel}>Settings</Text>
           </TouchableOpacity>
         </View>
 
@@ -167,7 +265,7 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
                 source={{
                   uri:
                     videos[0].thumbnailUrl ||
-                    "https://via.placeholder.com/120x68",
+                    "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?q=80&w=800&auto=format&fit=crop",
                 }}
                 style={styles.latestThumb}
               />
@@ -258,7 +356,7 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
           <View key={item._id} style={styles.contentItem}>
             <Image
               source={{
-                uri: item.thumbnailUrl || "https://via.placeholder.com/120x68",
+                uri: item.thumbnailUrl || "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?q=80&w=400&auto=format&fit=crop",
               }}
               style={styles.contentThumb}
             />
@@ -484,5 +582,67 @@ const styles = StyleSheet.create({
   progressText: {
     color: colors.dark.textSecondary,
     fontSize: 11,
+  },
+  brandingContainer: {
+    marginTop: 8,
+  },
+  bannerPreview: {
+    width: '100%',
+    height: 100,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 16,
+    position: 'relative',
+  },
+  dashboardBanner: {
+    width: '100%',
+    height: '100%',
+  },
+  bannerEditOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 4,
+  },
+  overlayText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  avatarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarPicker: {
+    position: 'relative',
+  },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: colors.dark.primary,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.dark.surface,
+  },
+  brandingText: {
+    marginLeft: 16,
+    flex: 1,
+  },
+  brandingName: {
+    color: colors.dark.text,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  brandingSub: {
+    color: colors.dark.textSecondary,
+    fontSize: 12,
+    marginTop: 2,
   },
 });

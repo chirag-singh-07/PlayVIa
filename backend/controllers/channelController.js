@@ -144,6 +144,39 @@ const updateChannel = asyncHandler(async (req, res) => {
   res.json(updatedChannel);
 });
 
+// @desc    Get channel analytics/stats
+// @route   GET /api/channel/stats/me
+// @access  Private
+const getChannelStats = asyncHandler(async (req, res) => {
+  const channel = await Channel.findOne({ owner: req.user._id });
+  if (!channel) {
+    res.status(404);
+    throw new Error('Channel not found');
+  }
+
+  const Video = require('../models/Video');
+  const Comment = require('../models/Comment');
+
+  const videos = await Video.find({ channel: channel._id });
+  const videoIds = videos.map(v => v._id);
+
+  // Aggregate stats
+  const totalViews = videos.reduce((acc, v) => acc + (v.views || 0), 0);
+  const totalLikes = videos.reduce((acc, v) => acc + (v.likesCount || 0), 0);
+  
+  const totalComments = await Comment.countDocuments({ video: { $in: videoIds } });
+
+  res.json({
+    subscribers: channel.subscribersCount,
+    totalViews,
+    totalLikes,
+    totalComments,
+    videoCount: videos.length,
+    earnings: channel.earnings || 0,
+    recentVideos: videos.sort((a, b) => b.createdAt - a.createdAt).slice(0, 5)
+  });
+});
+
 module.exports = { 
   createChannel, 
   getChannelById, 
@@ -151,5 +184,6 @@ module.exports = {
   getChannelVideos, 
   getChannelShorts,
   getAllChannelContent,
-  updateChannel 
+  updateChannel,
+  getChannelStats
 };

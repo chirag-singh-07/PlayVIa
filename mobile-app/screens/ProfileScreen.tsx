@@ -72,7 +72,11 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
       >
         {/* User Identity Section */}
         <View style={styles.userSection}>
-          <Avatar uri={myChannel?.avatar || user?.avatar} size={70} />
+          <Avatar 
+            uri={myChannel?.avatar || user?.avatar} 
+            name={myChannel?.name || user?.name || user?.username} 
+            size={70} 
+          />
           <View style={styles.userText}>
             <Text style={styles.nameText}>{myChannel?.name || user?.name || user?.username}</Text>
             <Text style={styles.handleText}>@{user?.username} • View channel</Text>

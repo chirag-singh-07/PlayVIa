@@ -39,9 +39,14 @@ export const channelService = {
   updateChannel: async (id: string, formData: FormData) => {
     const response = await api.put(`/channel/${id}`, formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        'Accept': 'application/json',
       },
     });
+    return response.data;
+  },
+
+  getChannelStats: async () => {
+    const response = await api.get('/channel/stats/me');
     return response.data;
   }
 };

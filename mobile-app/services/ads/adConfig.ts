@@ -42,7 +42,12 @@ const prodIdsConfigured =
   !!process.env.EXPO_PUBLIC_ADMOB_BANNER_ID &&
   !!process.env.EXPO_PUBLIC_ADMOB_REWARDED_ID;
 
-export const AD_UNIT_IDS = IS_DEV || !prodIdsConfigured ? TEST_IDS : PROD_IDS;
+// Set this to TRUE to use your real AdMob IDs (configured in .env)
+// Set this to FALSE to use Google Test IDs (guaranteed to load, safe for dev)
+const USE_REAL_ADS = true;
+
+// Use real IDs only if they are configured AND the toggle is ON
+export const AD_UNIT_IDS = (prodIdsConfigured && USE_REAL_ADS) ? PROD_IDS : TEST_IDS;
 
 // ─── AdMob App IDs (required in app.json) ───────────────────────────────────
 // Set YOUR real App IDs from https://admob.google.com

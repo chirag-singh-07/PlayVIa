@@ -77,7 +77,7 @@ const uploadVideo = asyncHandler(async (req, res) => {
 // @route   GET /api/video/:id
 // @access  Public
 const getVideoById = asyncHandler(async (req, res) => {
-  const video = await Video.findById(req.params.id).populate('channel', 'name subscribersCount banner avatar');
+  const video = await Video.findById(req.params.id).populate('channel', 'name subscribersCount banner avatar owner');
 
   if (video) {
     // Increment view

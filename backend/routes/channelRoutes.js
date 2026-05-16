@@ -5,6 +5,7 @@ const { protect } = require('../middleware/authMiddleware');
 const { upload } = require('../config/cloudinary');
 
 router.get('/me', protect, getMyChannel);
+router.get('/stats/me', protect, getChannelStats);
 router.post(
   '/create',
   protect,

@@ -9,7 +9,7 @@
     },
     "preview": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://playvia.onrender.com/api",
+        "EXPO_PUBLIC_API_URL": "https://playvia-backend-api.onrender.com/api",
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "867179466534-ajq2s6iq3qn0363tfo5biv4p7du85e2a.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "867179466534-h80r6bq5g7fscf4290aennijhltge4a2.apps.googleusercontent.com"
       },
@@ -20,7 +20,7 @@
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://playvia.onrender.com/api",
+        "EXPO_PUBLIC_API_URL": "https://playvia-backend-api.onrender.com/api",
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "867179466534-ajq2s6iq3qn0363tfo5biv4p7du85e2a.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "867179466534-h80r6bq5g7fscf4290aennijhltge4a2.apps.googleusercontent.com",
         "EXPO_PUBLIC_ADMOB_INTERSTITIAL_ID": "ca-app-pub-4867895597149993/2769934495",

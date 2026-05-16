@@ -12,7 +12,13 @@ const DEFAULT_AVATAR = 'https://icon-library.com/images/anonymous-avatar-icon/an
 export const Avatar: React.FC<AvatarProps> = ({ uri, size = 40, style }) => {
   const [error, setError] = React.useState(false);
   
-  const isValidUri = uri && uri.trim() !== '' && !uri.includes('undefined') && !uri.includes('null');
+  const isValidUri = uri && 
+                     typeof uri === 'string' && 
+                     uri.trim() !== '' && 
+                     !uri.includes('undefined') && 
+                     !uri.includes('null') &&
+                     (uri.startsWith('http') || uri.startsWith('file') || uri.startsWith('data'));
+
   const sourceUri = isValidUri && !error ? uri : DEFAULT_AVATAR;
   
   return (
@@ -24,7 +30,9 @@ export const Avatar: React.FC<AvatarProps> = ({ uri, size = 40, style }) => {
         style,
       ]}
       resizeMode="cover"
-      onError={() => setError(true)}
+      onError={() => {
+        if (!error) setError(true);
+      }}
     />
   );
 };

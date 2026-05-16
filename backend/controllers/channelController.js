@@ -40,7 +40,31 @@ const getChannelById = asyncHandler(async (req, res) => {
   const channel = await Channel.findById(req.params.id).populate('owner', 'username avatar');
 
   if (channel) {
-    res.json(channel);
+    // Count subscribers
+    const Subscription = require('../models/Subscription');
+    const subscribers = await Subscription.countDocuments({ channel: channel._id });
+    
+    // Count videos
+    const Video = require('../models/Video');
+    const videosCount = await Video.countDocuments({ channel: channel._id });
+
+    // Check if current user is subscribed
+    let isSubscribed = false;
+    if (req.user) {
+      const subscription = await Subscription.findOne({
+        subscriber: req.user._id,
+        channel: channel._id,
+      });
+      isSubscribed = !!subscription;
+    }
+
+    const channelObj = channel.toObject();
+    channelObj.subscribers = subscribers;
+    channelObj.subscribersCount = subscribers; // Support both names
+    channelObj.videosCount = videosCount;
+    channelObj.isSubscribed = isSubscribed;
+
+    res.json(channelObj);
   } else {
     res.status(404);
     throw new Error('Channel not found');

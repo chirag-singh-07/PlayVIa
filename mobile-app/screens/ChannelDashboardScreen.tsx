@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatsCard } from '../components/StatsCard';
 import { DashboardCard } from '../components/DashboardCard';
@@ -12,7 +12,7 @@ import { ScreenWrapper } from '../components/ScreenWrapper';
 import { useAuth } from '../context/AuthContext';
 import { channelService } from '../services/channelService';
 import { earningsService } from '../services/earningsService';
-import { ActivityIndicator } from 'react-native';
+
 import { formatViews } from '../utils/videoUtils';
 
 export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
@@ -55,7 +55,7 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.dark.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Dashboard</Text>
+        <Text style={styles.headerTitle}>Creator Studio</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
@@ -64,40 +64,86 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
           <Text style={styles.sectionTitle}>Channel Analytics</Text>
           <Text style={styles.sectionSubtitle}>Current subscribers</Text>
           <Text style={styles.largeValue}>{formatViews(user?.channel?.subscribersCount || 0)}</Text>
-          <Text style={styles.statChange}>Overall performance</Text>
+          <View style={styles.summaryStats}>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>Views</Text>
+              <Text style={styles.summaryValue}>{formatViews(user?.channel?.totalViews || 0)}</Text>
+              <Text style={[styles.summaryChange, { color: '#4CAF50' }]}>+12%</Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>Watch time (hours)</Text>
+              <Text style={styles.summaryValue}>{( (user?.channel?.totalViews || 0) * 0.1 ).toFixed(1)}</Text>
+              <Text style={[styles.summaryChange, { color: '#4CAF50' }]}>+5%</Text>
+            </View>
+          </View>
 
           <View style={styles.divider} />
           
-          <Text style={styles.sectionSubtitle}>Summary</Text>
-          <View style={styles.statsRow}>
-            <StatsCard title="Views" value={formatViews(user?.channel?.totalViews || 0)} icon="eye-outline" />
-            <StatsCard title="Videos" value={videos.length.toString()} icon="videocam-outline" />
-            <StatsCard title="Subscribers" value={formatViews(user?.channel?.subscribersCount || 0)} icon="people-outline" />
-          </View>
+          <TouchableOpacity style={styles.analyticsLink}>
+            <Text style={styles.analyticsLinkText}>SEE CHANNEL ANALYTICS</Text>
+          </TouchableOpacity>
         </DashboardCard>
 
-        {/* Action Buttons */}
+        {/* Quick Actions */}
         <View style={styles.actionsRow}>
-          <Button
-            title="Upload Video"
-            onPress={() => navigation.navigate('Upload')}
-            style={styles.actionBtn}
-          />
-          <Button
-            title="Edit Channel"
-            variant="secondary"
-            onPress={() => navigation.navigate('ChannelProfile')}
-            style={styles.actionBtn}
-          />
+          <TouchableOpacity style={styles.studioActionBtn} onPress={() => navigation.navigate('Upload')}>
+            <View style={[styles.actionIconCircle, { backgroundColor: colors.dark.primary }]}>
+              <Ionicons name="add" size={24} color={colors.dark.white} />
+            </View>
+            <Text style={styles.actionBtnLabel}>Upload</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.studioActionBtn} onPress={() => navigation.navigate('Shorts')}>
+            <View style={[styles.actionIconCircle, { backgroundColor: '#FF5722' }]}>
+              <Ionicons name="flash" size={20} color={colors.dark.white} />
+            </View>
+            <Text style={styles.actionBtnLabel}>Shorts</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.studioActionBtn} onPress={() => navigation.navigate('ChannelProfile', { channelId: user?.channel?._id })}>
+            <View style={[styles.actionIconCircle, { backgroundColor: colors.dark.surface }]}>
+              <Ionicons name="pencil" size={20} color={colors.dark.text} />
+            </View>
+            <Text style={styles.actionBtnLabel}>Edit</Text>
+          </TouchableOpacity>
         </View>
+
+        {/* Latest Video Performance */}
+        {videos.length > 0 && (
+          <DashboardCard style={styles.section}>
+            <Text style={styles.sectionTitle}>Latest Video Performance</Text>
+            <View style={styles.latestVideoHeader}>
+              <Image 
+                source={{ uri: videos[0].thumbnailUrl || 'https://via.placeholder.com/120x68' }} 
+                style={styles.latestThumb} 
+              />
+              <Text style={styles.latestTitle} numberOfLines={2}>{videos[0].title}</Text>
+            </View>
+            <View style={styles.statsList}>
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>Views</Text>
+                <Text style={styles.statValue}>{formatViews(videos[0].views || 0)}</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>Avg. view duration</Text>
+                <Text style={styles.statValue}>1:42 (45%)</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>Impressions click-through rate</Text>
+                <Text style={styles.statValue}>8.4%</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.analyticsLink}>
+              <Text style={styles.analyticsLinkText}>GO TO VIDEO ANALYTICS</Text>
+            </TouchableOpacity>
+          </DashboardCard>
+        )}
 
         {/* Monetization Section */}
         <DashboardCard style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Monetization Status</Text>
+            <Text style={styles.sectionTitle}>Monetization</Text>
             <Ionicons 
-              name={earnings?.eligible ? "checkmark-circle" : "alert-circle"} 
-              size={24} 
+              name={earnings?.eligible ? "checkmark-circle" : "lock-closed"} 
+              size={20} 
               color={earnings?.eligible ? "#4CAF50" : colors.dark.textSecondary} 
             />
           </View>
@@ -105,43 +151,41 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
             <View>
               <Text style={styles.largeValue}>₹{earnings.earnings}</Text>
               <Text style={styles.sectionSubtitle}>Total Estimated Earnings</Text>
+              <Button title="Withdraw Funds" onPress={() => navigation.navigate('Withdrawal')} style={{ marginTop: 10 }} />
             </View>
           ) : (
             <View>
-              <Text style={styles.sectionSubtitle}>{earnings?.message}</Text>
+              <Text style={styles.sectionSubtitle}>Not yet eligible for monetization.</Text>
               <View style={styles.progressContainer}>
                 <View style={[styles.progressBar, { width: `${Math.min(100, (user?.channel?.subscribersCount || 0) / 20)}%` }]} />
               </View>
-              <Text style={styles.progressText}>{user?.channel?.subscribersCount || 0} / 2000 subscribers</Text>
+              <Text style={styles.progressText}>{user?.channel?.subscribersCount || 0} / 2000 subscribers required</Text>
             </View>
           )}
         </DashboardCard>
 
-        {/* Latest Content */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Your Content</Text>
+        {/* Published Content */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Published Content</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('YourVideos')}>
+            <Text style={styles.seeAllText}>SEE ALL</Text>
+          </TouchableOpacity>
         </View>
         
-        {videos.slice(0, 5).map((item) => (
-          <VideoCard
-            key={item._id}
-            title={item.title}
-            thumbnail={item.thumbnailUrl}
-            channelName={user?.channel?.name || 'Your Channel'}
-            channelAvatar={user?.avatar || ''}
-            views={formatViews(item.views || 0)}
-            createdAt={item.createdAt} // Should be formatted but for now okay
-            duration={item.duration}
-            onPress={() => navigation.navigate('VideoPlayer', { video: item })}
-          />
+        {videos.slice(0, 3).map((item) => (
+          <View key={item._id} style={styles.contentItem}>
+            <Image source={{ uri: item.thumbnailUrl || 'https://via.placeholder.com/120x68' }} style={styles.contentThumb} />
+            <View style={styles.contentInfo}>
+              <Text style={styles.contentTitle} numberOfLines={2}>{item.title}</Text>
+              <Text style={styles.contentStats}>
+                {formatViews(item.views || 0)} views • {new Date(item.createdAt).toLocaleDateString()}
+              </Text>
+            </View>
+            <TouchableOpacity style={styles.contentAction}>
+              <Ionicons name="ellipsis-vertical" size={20} color={colors.dark.textSecondary} />
+            </TouchableOpacity>
+          </View>
         ))}
-
-        <Button
-          title="See All Videos"
-          variant="outline"
-          onPress={() => navigation.navigate('YourVideos')}
-          style={styles.allVideosBtn}
-        />
       </ScrollView>
     </ScreenWrapper>
   );
@@ -172,55 +216,164 @@ const styles = StyleSheet.create({
     marginBottom: layout.spacing.lg,
   },
   sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: layout.spacing.md,
   },
   sectionTitle: {
     color: colors.dark.text,
     fontSize: typography.sizes.lg,
     fontWeight: typography.weights.bold as '700',
-    marginBottom: 4,
   },
   sectionSubtitle: {
     color: colors.dark.textSecondary,
     fontSize: typography.sizes.sm,
     marginBottom: 8,
   },
+  seeAllText: {
+    color: colors.dark.primary,
+    fontSize: typography.sizes.sm,
+    fontWeight: '600',
+  },
   largeValue: {
     color: colors.dark.text,
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: typography.weights.bold as '700',
+    marginTop: 4,
   },
-  statChange: {
-    color: '#4CAF50', // green for positive change
+  summaryStats: {
+    flexDirection: 'row',
+    marginTop: 20,
+    gap: 20,
+  },
+  summaryItem: {
+    flex: 1,
+  },
+  summaryLabel: {
+    color: colors.dark.textSecondary,
+    fontSize: 11,
+    textTransform: 'uppercase',
+  },
+  summaryValue: {
+    color: colors.dark.text,
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  summaryChange: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  analyticsLink: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  analyticsLinkText: {
+    color: colors.dark.primary,
     fontSize: typography.sizes.sm,
-    marginBottom: layout.spacing.md,
+    fontWeight: '700',
+    letterSpacing: 1,
   },
   divider: {
     height: 1,
     backgroundColor: colors.dark.border,
     marginVertical: layout.spacing.md,
   },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
   actionsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
     marginBottom: layout.spacing.lg,
+    backgroundColor: colors.dark.surface,
+    paddingVertical: 16,
+    borderRadius: 12,
   },
-  actionBtn: {
+  studioActionBtn: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionBtnLabel: {
+    color: colors.dark.text,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  latestVideoHeader: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  latestThumb: {
+    width: 120,
+    height: 68,
+    borderRadius: 4,
+    backgroundColor: colors.dark.border,
+  },
+  latestTitle: {
+    color: colors.dark.text,
+    fontSize: 14,
+    fontWeight: '600',
     flex: 1,
-    marginHorizontal: layout.spacing.xs,
   },
-  allVideosBtn: {
-    marginTop: layout.spacing.md,
+  statsList: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  statItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statLabel: {
+    color: colors.dark.textSecondary,
+    fontSize: 13,
+  },
+  statValue: {
+    color: colors.dark.text,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  contentItem: {
+    flexDirection: 'row',
+    backgroundColor: colors.dark.surface,
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  contentThumb: {
+    width: 100,
+    height: 56,
+    borderRadius: 4,
+    backgroundColor: colors.dark.border,
+  },
+  contentInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  contentTitle: {
+    color: colors.dark.text,
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  contentStats: {
+    color: colors.dark.textSecondary,
+    fontSize: 12,
+  },
+  contentAction: {
+    padding: 8,
   },
   progressContainer: {
     height: 8,
     backgroundColor: colors.dark.border,
     borderRadius: 4,
-    marginVertical: layout.spacing.sm,
+    marginVertical: 12,
     overflow: 'hidden',
   },
   progressBar: {
@@ -229,6 +382,6 @@ const styles = StyleSheet.create({
   },
   progressText: {
     color: colors.dark.textSecondary,
-    fontSize: typography.sizes.xs,
+    fontSize: 11,
   },
 });

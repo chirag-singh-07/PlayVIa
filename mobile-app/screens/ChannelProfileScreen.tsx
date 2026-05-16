@@ -139,9 +139,9 @@ export const ChannelProfileScreen: React.FC<any> = ({ navigation, route }) => {
                 style={styles.shortItem}
                 onPress={() => navigation.navigate("MainTabs", { screen: "Shorts" })}
               >
-                {short.videoUrl || short.thumbnailUrl ? (
+                {short.thumbnailUrl || getCloudinaryThumbnail(short.videoUrl) ? (
                   <Image
-                    source={{ uri: short.videoUrl || short.thumbnailUrl }}
+                    source={{ uri: short.thumbnailUrl || getCloudinaryThumbnail(short.videoUrl) || '' }}
                     style={styles.shortImage}
                   />
                 ) : (
@@ -213,7 +213,7 @@ export const ChannelProfileScreen: React.FC<any> = ({ navigation, route }) => {
           <Text style={styles.channelName}>{channelData.name}</Text>
           <Text style={styles.channelStats}>
             {channelData.handle ? `${channelData.handle} • ` : ''}
-            {channelData.subscribers || 0} Subscribers •{" "}
+            {formatViews(channelData.subscribersCount || channelData.subscribers || 0)} Subscribers •{" "}
             {channelData.videosCount || 0} Videos
           </Text>
           {channelData.description && (

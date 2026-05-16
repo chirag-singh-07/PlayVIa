@@ -149,7 +149,7 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
           ) : (
             <MenuOption 
               icon="analytics-outline" 
-              title="Channel dashboard" 
+              title="Creator Studio" 
               onPress={() => navigation.navigate('ChannelDashboard')} 
             />
           )}

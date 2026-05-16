@@ -80,6 +80,18 @@ api.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       console.log('🔑 Session expired. Clearing token.');
       await SecureStore.deleteItemAsync('userToken');
+    } else {
+      // Generic Alert for other errors (except for the background retry logic)
+      if (error.response || error.code === 'ERR_NETWORK') {
+        const message = error.response?.data?.message || error.message || 'An unexpected error occurred.';
+        const status = error.response?.status ? ` (Error ${error.response.status})` : '';
+        
+        Alert.alert(
+          '⚠️ System Message',
+          `${message}${status}`,
+          [{ text: 'OK' }]
+        );
+      }
     }
 
     return Promise.reject(error);

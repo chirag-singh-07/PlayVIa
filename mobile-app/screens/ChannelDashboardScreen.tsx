@@ -102,6 +102,7 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
   }, [fetchDashboardData]);
 
   const handleUpdateBranding = async (type: "avatar" | "banner") => {
+    console.log(`📸 Starting ${type} update process...`);
     try {
       const { status } =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -120,6 +121,8 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
       if (!result.canceled && user?.channel) {
         setIsUpdating(true);
         const asset = result.assets[0];
+        console.log(`📦 File selected: ${asset.uri}`);
+        
         const formData = new FormData();
         const imageUri =
           Platform.OS === "android"
@@ -132,16 +135,24 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
           type: asset.mimeType || "image/jpeg",
         } as any);
 
-        await channelService.updateChannel(user.channel._id, formData);
+        console.log(`📤 Uploading ${type} to backend...`);
+        const response = await channelService.updateChannel(user.channel._id, formData);
+        console.log(`✅ ${type} upload successful:`, JSON.stringify(response, null, 2));
+        
+        console.log('🔄 Refreshing profile...');
         await refreshProfile();
+        console.log('👤 Profile refreshed. Current user state:', JSON.stringify(user, (key, value) => key === 'password' ? undefined : value, 2));
+        
         Alert.alert(
           "Success",
           `${type.charAt(0).toUpperCase() + type.slice(1)} updated successfully!`,
         );
+      } else {
+        console.log('🚫 Image picker canceled or user channel missing');
       }
     } catch (error: any) {
-      console.error(`Error updating ${type}:`, error);
-      Alert.alert("Upload Failed", `Could not update ${type}`);
+      console.error(`❌ Error updating ${type}:`, error);
+      Alert.alert("Upload Failed", `Could not update ${type}. Check console for details.`);
     } finally {
       setIsUpdating(false);
     }
@@ -291,6 +302,44 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
             />
           </View>
 
+          {/* Earnings Overview */}
+          <View style={styles.earningsOverview}>
+            <LinearGradient
+              colors={["#1A237E", "#3949AB"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.earningsGradient}
+            >
+              <View style={styles.earningsInfo}>
+                <View>
+                  <Text style={styles.earningsLabel}>Current Earnings</Text>
+                  <Text style={styles.earningsValue}>₹{earnings?.earnings || 0}</Text>
+                </View>
+                <TouchableOpacity 
+                  style={styles.payoutBtn}
+                  onPress={() => navigation.navigate("Withdrawal")}
+                >
+                  <Text style={styles.payoutBtnText}>Payouts</Text>
+                  <Ionicons name="chevron-forward" size={14} color="white" />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.progressContainer}>
+                <View style={styles.progressBar}>
+                  <View 
+                    style={[
+                      styles.progressFill, 
+                      { width: `${Math.min(((earnings?.earnings || 0) / 5000) * 100, 100)}%` }
+                    ]} 
+                  />
+                </View>
+                <Text style={styles.progressSubtext}>
+                  ₹{(earnings?.earnings || 0)} of ₹5,000 threshold
+                </Text>
+              </View>
+            </LinearGradient>
+          </View>
+
           {/* Stats Row */}
           <View style={styles.statsRow}>
             <GlassStatCard
@@ -300,10 +349,10 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
               trend="+12%"
             />
             <GlassStatCard
-              label="Est. Revenue"
-              value={`₹${earnings?.earnings || 0}`}
-              icon="cash-outline"
-              trend="+5%"
+              label="Subscribers"
+              value={formatViews(stats?.subscribers || 0)}
+              icon="people-outline"
+              trend="+8%"
             />
           </View>
 
@@ -797,6 +846,70 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
   },
   tipsScroll: { marginTop: 10 },
+  earningsOverview: {
+    marginBottom: 25,
+    borderRadius: 20,
+    overflow: "hidden",
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  earningsGradient: {
+    padding: 20,
+  },
+  earningsInfo: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  earningsLabel: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  earningsValue: {
+    color: "white",
+    fontSize: 28,
+    fontWeight: "900",
+    marginTop: 2,
+  },
+  payoutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.15)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 4,
+  },
+  payoutBtnText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  progressContainer: {
+    marginTop: 5,
+  },
+  progressBar: {
+    height: 6,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: "#00E676",
+    borderRadius: 3,
+  },
+  progressSubtext: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 10,
+    marginTop: 6,
+    fontWeight: "600",
+  },
   tipCard: {
     width: 200,
     backgroundColor: colors.dark.surface,

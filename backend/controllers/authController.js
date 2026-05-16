@@ -210,6 +210,10 @@ const loginUser = asyncHandler(async (req, res) => {
       await User.findByIdAndUpdate(pendingReferral.referrer, { $inc: { referralCount: 1 } });
     }
 
+    // Find user's channel
+    const Channel = require('../models/Channel');
+    const channel = await Channel.findOne({ owner: user._id });
+
     res.json({
       _id: user._id,
       name: user.name || user.username,
@@ -217,6 +221,7 @@ const loginUser = asyncHandler(async (req, res) => {
       email: user.email,
       avatar: user.avatar,
       role: user.role,
+      channel: channel,
       token: generateToken(user._id),
     });
   } else {
@@ -309,6 +314,10 @@ const getUserProfile = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id);
 
   if (user) {
+    // Find user's channel
+    const Channel = require('../models/Channel');
+    const channel = await Channel.findOne({ owner: user._id });
+
     res.json({
       _id: user._id,
       name: user.name,
@@ -318,6 +327,7 @@ const getUserProfile = asyncHandler(async (req, res) => {
       role: user.role,
       referralCode: user.referralCode,
       referralCount: user.referralCount,
+      channel: channel,
     });
   } else {
     res.status(404);
@@ -373,6 +383,10 @@ const googleLogin = asyncHandler(async (req, res) => {
       });
     }
 
+    // Find user's channel
+    const Channel = require('../models/Channel');
+    const channel = await Channel.findOne({ owner: user._id });
+
     res.json({
       _id: user._id,
       name: user.name || user.username,
@@ -380,6 +394,7 @@ const googleLogin = asyncHandler(async (req, res) => {
       email: user.email,
       avatar: user.avatar,
       role: user.role,
+      channel: channel,
       token: generateToken(user._id),
     });
   } catch (error) {

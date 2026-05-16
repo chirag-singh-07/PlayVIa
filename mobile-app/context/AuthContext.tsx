@@ -9,6 +9,7 @@ interface AuthContextType {
   googleLogin: (accessToken: string) => Promise<void>;
   register: (userData: any) => Promise<void>;
   logout: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
   isAuthenticated: boolean;
 }
 
@@ -67,6 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         googleLogin,
         register,
         logout,
+        refreshProfile: checkLoginStatus,
         isAuthenticated: !!user,
       }}
     >

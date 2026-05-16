@@ -19,7 +19,7 @@ export const YourVideosScreen: React.FC<any> = ({ navigation }) => {
     const fetchVideos = async () => {
       try {
         if (user?.channel) {
-          const data = await channelService.getChannelVideos(user.channel._id);
+          const data = await channelService.getAllChannelContent(user.channel._id);
           setVideos(data);
         }
       } catch (error) {

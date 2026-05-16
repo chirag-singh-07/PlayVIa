@@ -99,6 +99,16 @@ const getChannelShorts = asyncHandler(async (req, res) => {
   res.json(shorts);
 });
 
+// @desc    Get all channel content (videos + shorts)
+// @route   GET /api/channel/:id/all
+// @access  Public
+const getAllChannelContent = asyncHandler(async (req, res) => {
+  const Video = require('../models/Video');
+  const content = await Video.find({ channel: req.params.id })
+    .sort({ createdAt: -1 });
+  res.json(content);
+});
+
 // @desc    Update channel
 // @route   PUT /api/channel/:id
 // @access  Private
@@ -140,5 +150,6 @@ module.exports = {
   getMyChannel, 
   getChannelVideos, 
   getChannelShorts,
+  getAllChannelContent,
   updateChannel 
 };

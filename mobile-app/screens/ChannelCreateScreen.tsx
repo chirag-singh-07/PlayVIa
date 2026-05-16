@@ -20,7 +20,7 @@ import { channelService } from "../services/channelService";
 import { useAuth } from "../context/AuthContext";
 
 export const ChannelCreateScreen: React.FC<any> = ({ navigation }) => {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const [name, setName] = useState(user?.username || "");
   const [description, setDescription] = useState("");
   const [banner, setBanner] = useState<any>(null);
@@ -80,6 +80,7 @@ export const ChannelCreateScreen: React.FC<any> = ({ navigation }) => {
       }
 
       await channelService.createChannel(formData);
+      await refreshProfile();
 
       Alert.alert("Success", "Your channel has been created successfully!", [
         {

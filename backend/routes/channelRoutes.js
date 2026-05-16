@@ -17,6 +17,7 @@ router.post(
 router.get('/:id', getChannelById);
 router.get('/:id/videos', getChannelVideos);
 router.get('/:id/shorts', getChannelShorts);
+router.get('/:id/all', getAllChannelContent);
 router.put(
   '/:id',
   protect,

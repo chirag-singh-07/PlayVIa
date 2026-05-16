@@ -16,6 +16,11 @@ export const channelService = {
     return response.data;
   },
   
+  getAllChannelContent: async (id: string) => {
+    const response = await api.get(`/channel/${id}/all`);
+    return response.data;
+  },
+  
   subscribeToChannel: async (id: string) => {
     const response = await api.post(`/subscribe/${id}`);
     return response.data;

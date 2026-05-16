@@ -4,10 +4,12 @@ const {
   createBoostOrder,
   verifyBoostPayment,
   getMyBoosts,
-  getAllBoosts
+  getAllBoosts,
+  getBoostSettings
 } = require('../controllers/boostController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
+router.get('/settings', getBoostSettings);
 router.post('/create-order', protect, createBoostOrder);
 router.post('/verify', protect, verifyBoostPayment);
 router.get('/my-boosts', protect, getMyBoosts);

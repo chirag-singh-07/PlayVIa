@@ -22,6 +22,10 @@ import { useAuth } from "../context/AuthContext";
 import { channelService } from "../services/channelService";
 import { earningsService } from "../services/earningsService";
 import { formatViews } from "../utils/videoUtils";
+import RazorpayCheckout from "react-native-razorpay";
+import { boostService } from "../services/boostService";
+import { Modal } from "react-native";
+import Constants from "expo-constants";
 
 const { width } = Dimensions.get("window");
 
@@ -73,22 +77,30 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
   const [earnings, setEarnings] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
   const [isUpdating, setIsUpdating] = React.useState(false);
+  const [showBoostModal, setShowBoostModal] = React.useState(false);
+  const [selectedVideo, setSelectedVideo] = React.useState<any>(null);
+  const [isBoosting, setIsBoosting] = React.useState(false);
+  const [boostSettings, setBoostSettings] = React.useState<any>(null);
+
+  const RAZORPAY_KEY = process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || "";
 
   const fetchDashboardData = React.useCallback(async () => {
     try {
       if (user?.channel) {
         await refreshProfile();
-        const [channelVideos, channelEarnings, channelStats, channelComments] =
+        const [channelVideos, channelEarnings, channelStats, channelComments, settings] =
           await Promise.all([
             channelService.getAllChannelContent(user.channel._id),
             earningsService.getChannelEarnings(user.channel._id),
             channelService.getChannelStats(),
             channelService.getCreatorComments(),
+            boostService.getSettings(),
           ]);
         setVideos(channelVideos);
         setEarnings(channelEarnings);
         setStats(channelStats);
         setComments(channelComments);
+        setBoostSettings(settings);
       }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -122,7 +134,7 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
         setIsUpdating(true);
         const asset = result.assets[0];
         console.log(`📦 File selected: ${asset.uri}`);
-        
+
         const formData = new FormData();
         const imageUri =
           Platform.OS === "android"
@@ -136,25 +148,128 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
         } as any);
 
         console.log(`📤 Uploading ${type} to backend...`);
-        const response = await channelService.updateChannel(user.channel._id, formData);
-        console.log(`✅ ${type} upload successful:`, JSON.stringify(response, null, 2));
-        
-        console.log('🔄 Refreshing profile...');
+        const response = await channelService.updateChannel(
+          user.channel._id,
+          formData,
+        );
+        console.log(
+          `✅ ${type} upload successful:`,
+          JSON.stringify(response, null, 2),
+        );
+
+        console.log("🔄 Refreshing profile...");
         await refreshProfile();
-        console.log('👤 Profile refreshed. Current user state:', JSON.stringify(user, (key, value) => key === 'password' ? undefined : value, 2));
-        
+        console.log(
+          "👤 Profile refreshed. Current user state:",
+          JSON.stringify(
+            user,
+            (key, value) => (key === "password" ? undefined : value),
+            2,
+          ),
+        );
+
         Alert.alert(
           "Success",
           `${type.charAt(0).toUpperCase() + type.slice(1)} updated successfully!`,
         );
       } else {
-        console.log('🚫 Image picker canceled or user channel missing');
+        console.log("🚫 Image picker canceled or user channel missing");
       }
     } catch (error: any) {
       console.error(`❌ Error updating ${type}:`, error);
-      Alert.alert("Upload Failed", `Could not update ${type}. Check console for details.`);
+      Alert.alert(
+        "Upload Failed",
+        `Could not update ${type}. Check console for details.`,
+      );
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleBoostVideo = async (duration: number, amount: number) => {
+    if (!selectedVideo || !user) return;
+
+    console.log(
+      `🚀 Starting boost process for video: ${selectedVideo.title} (${selectedVideo._id})`,
+    );
+    console.log(`⏱️ Duration: ${duration} days, Amount: ₹${amount}`);
+
+    setIsBoosting(true);
+    try {
+      // 1. Create order on backend
+      console.log("📡 Requesting Razorpay order from backend...");
+      const orderData = await boostService.createOrder(
+        selectedVideo._id,
+        duration,
+      );
+      console.log("📦 Order received:", JSON.stringify(orderData, null, 2));
+
+      // 2. Open Razorpay Checkout
+      const options = {
+        description: `Boost Video: ${selectedVideo.title}`,
+        image: user.channel?.avatar || "",
+        currency: orderData.currency,
+        key: RAZORPAY_KEY,
+        amount: orderData.amount,
+        name: "PlayVia Boost",
+        order_id: orderData.orderId,
+        prefill: {
+          email: user.email,
+          contact: "",
+          name: user.username,
+        },
+        theme: { color: "#3949AB" },
+      };
+
+      console.log("💳 Opening Razorpay Checkout...");
+      RazorpayCheckout.open(options)
+        .then(async (data: any) => {
+          // 3. Verify payment on backend
+          console.log(
+            "✅ Razorpay payment success:",
+            JSON.stringify(data, null, 2),
+          );
+          console.log("📡 Verifying payment on backend...");
+
+          try {
+            const verifyData = {
+              razorpay_order_id: data.razorpay_order_id,
+              razorpay_payment_id: data.razorpay_payment_id,
+              razorpay_signature: data.razorpay_signature,
+              videoId: selectedVideo._id,
+              duration,
+              amount: amount,
+            };
+
+            await boostService.verifyPayment(verifyData);
+            console.log("🏆 Boost activated successfully!");
+
+            Alert.alert(
+              "Success",
+              "Your video is now boosted! It will appear at the top of feeds.",
+            );
+            setShowBoostModal(false);
+            fetchDashboardData(); // Refresh to show boosted status
+          } catch (err) {
+            console.error("❌ Verification failed:", err);
+            Alert.alert(
+              "Error",
+              "Payment verification failed. Please contact support.",
+            );
+          }
+        })
+        .catch((error: any) => {
+          console.log(
+            "🔴 Razorpay payment failed/canceled:",
+            JSON.stringify(error, null, 2),
+          );
+          Alert.alert(`Error: ${error.code}`, error.description);
+        });
+    } catch (error: any) {
+      console.error("❌ Boost setup failed:", error);
+      Alert.alert("Error", "Failed to initialize payment. Try again later.");
+    } finally {
+      setIsBoosting(false);
     }
   };
 
@@ -183,7 +298,9 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
               style={styles.headerAvatarWrapper}
             >
               <Avatar
-                uri={user?.avatar}
+                uri={
+                  user?.avatar ? `${user.avatar}?t=${Date.now()}` : undefined
+                }
                 size={36}
                 style={styles.headerAvatar}
               />
@@ -229,9 +346,9 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
           >
             <Image
               source={{
-                uri:
-                  user?.channel?.banner ||
-                  "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=1000",
+                uri: user?.channel?.banner
+                  ? `${user.channel.banner}?t=${Date.now()}`
+                  : "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=1000",
               }}
               style={styles.heroBanner}
             />
@@ -251,7 +368,11 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
               style={styles.avatarWrapper}
             >
               <Avatar
-                uri={user?.channel?.avatar}
+                uri={
+                  user?.channel?.avatar
+                    ? `${user.channel.avatar}?t=${Date.now()}`
+                    : undefined
+                }
                 name={user?.channel?.name}
                 size={90}
                 style={styles.mainAvatar}
@@ -313,9 +434,11 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
               <View style={styles.earningsInfo}>
                 <View>
                   <Text style={styles.earningsLabel}>Current Earnings</Text>
-                  <Text style={styles.earningsValue}>₹{earnings?.earnings || 0}</Text>
+                  <Text style={styles.earningsValue}>
+                    ₹{earnings?.earnings || 0}
+                  </Text>
                 </View>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.payoutBtn}
                   onPress={() => navigation.navigate("Withdrawal")}
                 >
@@ -323,18 +446,20 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
                   <Ionicons name="chevron-forward" size={14} color="white" />
                 </TouchableOpacity>
               </View>
-              
+
               <View style={styles.progressContainer}>
                 <View style={styles.progressBar}>
-                  <View 
+                  <View
                     style={[
-                      styles.progressFill, 
-                      { width: `${Math.min(((earnings?.earnings || 0) / 5000) * 100, 100)}%` }
-                    ]} 
+                      styles.progressFill,
+                      {
+                        width: `${Math.min(((earnings?.earnings || 0) / 5000) * 100, 100)}%`,
+                      },
+                    ]}
                   />
                 </View>
                 <Text style={styles.progressSubtext}>
-                  ₹{(earnings?.earnings || 0)} of ₹5,000 threshold
+                  ₹{earnings?.earnings || 0} of ₹5,000 threshold
                 </Text>
               </View>
             </LinearGradient>
@@ -454,11 +579,44 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
                       {new Date(item.createdAt).toLocaleDateString()}
                     </Text>
                   </View>
-                  <Ionicons
-                    name="analytics"
-                    size={18}
-                    color={colors.dark.primary}
-                  />
+                  <View style={styles.contentActions}>
+                    <TouchableOpacity
+                      style={[
+                        styles.boostBadge,
+                        item.isBoosted && styles.boostedActive,
+                      ]}
+                      onPress={() => {
+                        setSelectedVideo(item);
+                        setShowBoostModal(true);
+                      }}
+                    >
+                      <Ionicons
+                        name="rocket"
+                        size={12}
+                        color={item.isBoosted ? "#fff" : "#FFD600"}
+                      />
+                      <Text
+                        style={[
+                          styles.boostText,
+                          item.isBoosted && styles.boostedTextActive,
+                        ]}
+                      >
+                        {item.isBoosted ? "Boosted" : "Boost"}
+                      </Text>
+                    </TouchableOpacity>
+                    {item.isBoosted && item.boostedUntil && (
+                      <View style={styles.boostTimer}>
+                        <Text style={styles.boostTimerText}>
+                          Until {new Date(item.boostedUntil).toLocaleDateString()}
+                        </Text>
+                      </View>
+                    )}
+                    <Ionicons
+                      name="analytics-outline"
+                      size={20}
+                      color={colors.dark.textSecondary}
+                    />
+                  </View>
                 </TouchableOpacity>
               ))
             ) : (
@@ -538,6 +696,118 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
           </View>
         </View>
       </ScrollView>
+      {/* Boost Modal */}
+      <Modal
+        visible={showBoostModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowBoostModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Boost Content</Text>
+                <Text style={styles.modalSubtitle}>
+                  Reach more viewers faster
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.closeBtn}
+                onPress={() => setShowBoostModal(false)}
+              >
+                <Ionicons name="close" size={24} color={colors.dark.text} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedVideo && (
+              <View style={styles.selectedVideoPreview}>
+                <Image
+                  source={{ uri: selectedVideo.thumbnailUrl }}
+                  style={styles.previewThumb}
+                />
+                <Text style={styles.previewTitle} numberOfLines={1}>
+                  {selectedVideo.title}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.boostOptions}>
+              {[3, 7, 30].map((days) => {
+                const perDay = boostSettings?.perDayCost || 100;
+                const discount =
+                  days === 3
+                    ? boostSettings?.discounts?.days3 || 10
+                    : days === 7
+                      ? boostSettings?.discounts?.days7 || 20
+                      : boostSettings?.discounts?.days30 || 30;
+                const originalPrice = perDay * days;
+                const finalPrice = Math.round(
+                  originalPrice * (1 - discount / 100),
+                );
+                const savings = originalPrice - finalPrice;
+
+                return (
+                  <TouchableOpacity
+                    key={days}
+                    style={[
+                      styles.boostOption,
+                      days === 7 && styles.selectedOption,
+                    ]}
+                    onPress={() => handleBoostVideo(days, finalPrice)}
+                  >
+                    <View>
+                      <Text style={styles.optionTitle}>{days} Days Boost</Text>
+                      <Text style={styles.optionDesc}>
+                        {discount}% Discount included
+                      </Text>
+                    </View>
+                    <View style={styles.optionPriceContainer}>
+                      <Text style={styles.optionPrice}>₹{finalPrice}</Text>
+                      <View
+                        style={[
+                          styles.optionBadge,
+                          days === 7 && { backgroundColor: "#FFD600" },
+                          days === 30 && { backgroundColor: "#00E676" },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.optionBadgeText,
+                            days === 7 && { color: "#000" },
+                          ]}
+                        >
+                          {days === 7
+                            ? "BEST VALUE"
+                            : days === 30
+                              ? "MAX REACH"
+                              : `SAVE ₹${savings}`}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+
+            </View>
+
+            <Text style={styles.boostNote}>
+              * Boosted videos appear at the top of Home and Shorts feeds.
+              Payments are processed securely via RoxPay (Razorpay).
+            </Text>
+
+            {isBoosting && (
+              <View style={styles.modalLoading}>
+                <ActivityIndicator color={colors.dark.primary} />
+                <Text style={styles.modalLoadingText}>
+                  Initializing Payment...
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       {isUpdating && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="white" />
@@ -960,6 +1230,168 @@ const styles = StyleSheet.create({
     color: "white",
     marginTop: 15,
     fontSize: 16,
+    fontWeight: "600",
+  },
+  contentActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  boostBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 214, 0, 0.1)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: "rgba(255, 214, 0, 0.3)",
+  },
+  boostedActive: {
+    backgroundColor: "#FFD600",
+    borderColor: "#FFD600",
+  },
+  boostText: {
+    color: "#FFD600",
+    fontSize: 10,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  boostedTextActive: {
+    color: "#000",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.8)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#121212",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: 25,
+    paddingBottom: 40,
+    maxHeight: "80%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 25,
+  },
+  modalTitle: {
+    color: "white",
+    fontSize: 22,
+    fontWeight: "900",
+  },
+  modalSubtitle: {
+    color: colors.dark.textSecondary,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  // closeBtn: {
+  //   padding: 5,
+  //   backgroundColor: "rgba(255,255,255,0.05)",
+  //   borderRadius: 12,
+  // },
+  selectedVideoPreview: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.03)",
+    padding: 10,
+    borderRadius: 15,
+    marginBottom: 20,
+    gap: 12,
+  },
+  previewThumb: {
+    width: 60,
+    height: 35,
+    borderRadius: 6,
+  },
+  previewTitle: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
+    flex: 1,
+  },
+  boostOptions: {
+    gap: 12,
+    marginBottom: 20,
+  },
+  boostOption: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.05)",
+    padding: 18,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  selectedOption: {
+    borderColor: colors.dark.primary,
+    backgroundColor: "rgba(57, 73, 171, 0.1)",
+  },
+  optionTitle: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  optionDesc: {
+    color: colors.dark.textSecondary,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  optionPriceContainer: {
+    alignItems: "flex-end",
+  },
+  optionPrice: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  optionBadge: {
+    backgroundColor: colors.dark.primary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: 4,
+  },
+  optionBadgeText: {
+    color: "white",
+    fontSize: 9,
+    fontWeight: "900",
+  },
+  boostNote: {
+    color: colors.dark.textSecondary,
+    fontSize: 11,
+    textAlign: "center",
+    lineHeight: 16,
+    paddingHorizontal: 20,
+  },
+  modalLoading: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+  },
+  modalLoadingText: {
+    color: "white",
+    marginTop: 15,
+    fontWeight: "700",
+  },
+  boostTimer: {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  boostTimerText: {
+    color: "rgba(255, 255, 255, 0.5)",
+    fontSize: 9,
     fontWeight: "600",
   },
 });

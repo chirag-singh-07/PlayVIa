@@ -17,6 +17,9 @@ import { colors, typography } from '../theme';
 import { layout } from '../constants';
 import { ScreenWrapper } from '../components/ScreenWrapper';
 import { videoService } from '../services/videoService';
+import { boostService } from '../services/boostService';
+import RazorpayCheckout from 'react-native-razorpay';
+import { Modal } from 'react-native';
 
 const VideoDetailsScreen: React.FC<any> = ({ route, navigation }) => {
   const { video } = route.params;
@@ -26,6 +29,11 @@ const VideoDetailsScreen: React.FC<any> = ({ route, navigation }) => {
   const [newThumbnailAsset, setNewThumbnailAsset] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const [showBoostModal, setShowBoostModal] = React.useState(false);
+  const [isBoosting, setIsBoosting] = React.useState(false);
+  const [boostSettings, setBoostSettings] = React.useState<any>(null);
+
+  const RAZORPAY_KEY = process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || "";
 
   const handlePickThumbnail = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -106,6 +114,59 @@ const VideoDetailsScreen: React.FC<any> = ({ route, navigation }) => {
     );
   };
 
+  const handleBoostVideo = async (duration: number, amount: number) => {
+    if (!video || !RAZORPAY_KEY) return;
+    
+    setIsBoosting(true);
+    try {
+      const orderData = await boostService.createOrder(video._id, duration);
+      
+      const options = {
+        description: `Boost Video: ${video.title}`,
+        image: video.thumbnailUrl || "",
+        currency: orderData.currency,
+        key: RAZORPAY_KEY,
+        amount: orderData.amount,
+        name: "PlayVia Boost",
+        order_id: orderData.orderId,
+        theme: { color: "#3949AB" },
+      };
+
+      RazorpayCheckout.open(options)
+        .then(async (data: any) => {
+          await boostService.verifyPayment({
+            razorpay_order_id: data.razorpay_order_id,
+            razorpay_payment_id: data.razorpay_payment_id,
+            razorpay_signature: data.razorpay_signature,
+            videoId: video._id,
+            duration,
+            amount: amount,
+          });
+          Alert.alert("Success", "Your video is now boosted!");
+          setShowBoostModal(false);
+        })
+        .catch((error: any) => {
+          Alert.alert(`Error: ${error.code}`, error.description);
+        });
+    } catch (error: any) {
+      Alert.alert("Error", "Failed to initialize payment.");
+    } finally {
+      setIsBoosting(false);
+    }
+  };
+
+  React.useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const settings = await boostService.getSettings();
+        setBoostSettings(settings);
+      } catch (err) {
+        console.error('Error fetching boost settings:', err);
+      }
+    };
+    fetchSettings();
+  }, []);
+
   return (
     <ScreenWrapper>
       <View style={styles.header}>
@@ -182,8 +243,87 @@ const VideoDetailsScreen: React.FC<any> = ({ route, navigation }) => {
             <Ionicons name="trash-outline" size={20} color="#FF5252" />
             <Text style={styles.deleteBtnText}>DELETE VIDEO</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.boostBtn} 
+            onPress={() => setShowBoostModal(true)}
+          >
+            <Ionicons name="rocket" size={20} color="#FFD600" />
+            <Text style={styles.boostBtnText}>BOOST VIDEO PERFORMANCE</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Boost Modal */}
+      <Modal
+        visible={showBoostModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowBoostModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Boost Content</Text>
+                <Text style={styles.modalSubtitle}>Reach more viewers faster</Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.closeBtn}
+                onPress={() => setShowBoostModal(false)}
+              >
+                <Ionicons name="close" size={24} color={colors.dark.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.boostOptions}>
+              {[3, 7, 30].map((days) => {
+                const perDay = boostSettings?.perDayCost || 100;
+                const discount =
+                  days === 3
+                    ? boostSettings?.discounts?.days3 || 10
+                    : days === 7
+                      ? boostSettings?.discounts?.days7 || 20
+                      : boostSettings?.discounts?.days30 || 30;
+                const finalPrice = Math.round(
+                  perDay * days * (1 - discount / 100),
+                );
+
+                return (
+                  <TouchableOpacity
+                    key={days}
+                    style={[
+                      styles.boostOption,
+                      days === 7 && styles.selectedOption,
+                    ]}
+                    onPress={() => handleBoostVideo(days, finalPrice)}
+                  >
+                    <View>
+                      <Text style={styles.optionTitle}>{days} Days Boost</Text>
+                      <Text style={styles.optionDesc}>
+                        {discount}% Discount included
+                      </Text>
+                    </View>
+                    <View style={styles.optionPriceContainer}>
+                      <Text style={styles.optionPrice}>₹{finalPrice}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={styles.boostNote}>
+              * Boosted videos appear at the top of Home and Shorts feeds.
+            </Text>
+
+            {isBoosting && (
+              <View style={styles.modalLoading}>
+                <ActivityIndicator color={colors.dark.primary} />
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </ScreenWrapper>
   );
 };
@@ -328,6 +468,94 @@ const styles = StyleSheet.create({
     color: '#FF5252',
     fontWeight: 'bold',
     marginLeft: 8,
+  },
+  boostBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: layout.spacing.md,
+    borderRadius: layout.borderRadius.md,
+    backgroundColor: 'rgba(255, 214, 0, 0.1)',
+    borderWidth: 1,
+    borderColor: '#FFD600',
+    marginTop: layout.spacing.sm,
+  },
+  boostBtnText: {
+    color: '#FFD600',
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#121212',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: 25,
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 25,
+  },
+  modalTitle: {
+    color: 'white',
+    fontSize: 22,
+    fontWeight: 'bold',
+  },
+  modalSubtitle: {
+    color: colors.dark.textSecondary,
+    fontSize: 13,
+  },
+  boostOptions: {
+    gap: 12,
+    marginBottom: 20,
+  },
+  boostOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    padding: 18,
+    borderRadius: 15,
+  },
+  selectedOption: {
+    borderColor: colors.dark.primary,
+    borderWidth: 1,
+  },
+  optionTitle: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  optionDesc: {
+    color: colors.dark.textSecondary,
+    fontSize: 12,
+  },
+  optionPrice: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  boostNote: {
+    color: colors.dark.textSecondary,
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  modalLoading: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 30,
+  },
+  closeBtn: {
+    padding: 5,
   },
 });
 export default VideoDetailsScreen;

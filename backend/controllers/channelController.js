@@ -146,13 +146,13 @@ const updateChannel = asyncHandler(async (req, res) => {
       if (avatarUrl) {
         channel.avatar = avatarUrl;
         
-        try {
-          // Sync with User model
-          const User = require('../models/User');
-          await User.findByIdAndUpdate(req.user._id, { avatar: avatarUrl });
-        } catch (syncError) {
-          console.error('⚠️ Avatar sync error:', syncError);
-        }
+        // Sync with User model BEFORE saving channel so profile refresh gets fresh data
+        const User = require('../models/User');
+        await User.findByIdAndUpdate(
+          req.user._id, 
+          { $set: { avatar: avatarUrl } },
+          { new: true }
+        );
       }
     }
   }

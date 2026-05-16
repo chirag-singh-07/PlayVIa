@@ -123,13 +123,16 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
+  const [localChannelAvatar, setLocalChannelAvatar] = React.useState<string | null>(null);
+  const [localChannelBanner, setLocalChannelBanner] = React.useState<string | null>(null);
+
   const handleUpdateBranding = async (type: "avatar" | "banner") => {
     console.log(`📸 Starting ${type} update process...`);
     try {
       const { status } =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
-        alert("Permission required to access media library");
+        Alert.alert("Permission Required", "Please grant access to your media library.");
         return;
       }
 
@@ -162,24 +165,22 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
           user.channel._id,
           formData,
         );
-        console.log(
-          `✅ ${type} upload successful:`,
-          JSON.stringify(response, null, 2),
-        );
+        console.log(`✅ ${type} upload successful`);
 
-        console.log("🔄 Refreshing profile...");
-        await refreshProfile();
-        console.log(
-          "👤 Profile refreshed. Current user state:",
-          JSON.stringify(
-            user,
-            (key, value) => (key === "password" ? undefined : value),
-            2,
-          ),
-        );
+        // ✅ Optimistic local update — don't wait for React state propagation
+        const newUrl = response?.avatar || response?.banner || '';
+        if (type === "avatar" && response?.avatar) {
+          setLocalChannelAvatar(`${response.avatar}?t=${Date.now()}`);
+        }
+        if (type === "banner" && response?.banner) {
+          setLocalChannelBanner(`${response.banner}?t=${Date.now()}`);
+        }
+
+        // Refresh global auth state in background
+        refreshProfile();
 
         Alert.alert(
-          "Success",
+          "✅ Success",
           `${type.charAt(0).toUpperCase() + type.slice(1)} updated successfully!`,
         );
       } else {
@@ -189,7 +190,7 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
       console.error(`❌ Error updating ${type}:`, error);
       Alert.alert(
         "Upload Failed",
-        `Could not update ${type}. Check console for details.`,
+        `Could not update your ${type}. Please try again.`,
       );
     } finally {
       setIsUpdating(false);
@@ -322,7 +323,7 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
             >
               <Avatar
                 uri={
-                  user?.avatar ? `${user.avatar}?t=${Date.now()}` : undefined
+                  localChannelAvatar || (user?.avatar ? `${user.avatar}?t=${Date.now()}` : undefined)
                 }
                 size={36}
                 style={styles.headerAvatar}
@@ -369,7 +370,9 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
           >
             <Image
               source={{
-                uri: user?.channel?.banner
+                uri: localChannelBanner
+                  ? localChannelBanner
+                  : user?.channel?.banner
                   ? `${user.channel.banner}?t=${Date.now()}`
                   : "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=1000",
               }}
@@ -392,7 +395,9 @@ export const ChannelDashboardScreen: React.FC<any> = ({ navigation }) => {
             >
               <Avatar
                 uri={
-                  user?.channel?.avatar
+                  localChannelAvatar
+                    ? localChannelAvatar
+                    : user?.channel?.avatar
                     ? `${user.channel.avatar}?t=${Date.now()}`
                     : undefined
                 }

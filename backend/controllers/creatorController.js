@@ -232,6 +232,10 @@ const createPayoutRequest = asyncHandler(async (req, res) => {
     note,
   });
 
+  // Deduct from earnings
+  earnings.totalEarnings -= amount;
+  await earnings.save();
+
   res.status(201).json({
     success: true,
     message: 'Withdrawal request submitted. You will receive the amount within 7 business days.',

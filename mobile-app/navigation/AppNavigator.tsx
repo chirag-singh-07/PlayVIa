@@ -13,6 +13,8 @@ import { YourVideosScreen } from '../screens/YourVideosScreen';
 import { ChannelProfileScreen } from '../screens/ChannelProfileScreen';
 import { ChannelEditScreen } from '../screens/ChannelEditScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { WithdrawalScreen } from '../screens/WithdrawalScreen';
+import { HistoryScreen } from '../screens/HistoryScreen';
 import { SearchResultsFilterScreen } from '../screens/SearchResultsFilterScreen';
 import { colors } from '../theme';
 import { StatusBar } from 'react-native';
@@ -58,6 +60,8 @@ export const AppNavigator = () => {
       <Stack.Screen name="ChannelProfile" component={ChannelProfileScreen} />
       <Stack.Screen name="ChannelEdit" component={ChannelEditScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="Withdrawal" component={WithdrawalScreen} />
+      <Stack.Screen name="History" component={HistoryScreen} />
       
       <Stack.Screen 
         name="SearchResultsFilter" 

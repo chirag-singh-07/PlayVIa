@@ -27,6 +27,7 @@ const referralRoutes = require('./routes/referralRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const creatorRoutes = require('./routes/creatorRoutes');
 const boostRoutes = require('./routes/boostRoutes');
+const payoutRoutes = require('./routes/payoutRoutes');
 
 // Connect to database
 connectDB();
@@ -58,6 +59,7 @@ app.use('/api/referral', referralRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/creator', creatorRoutes);
 app.use('/api/boost', boostRoutes);
+app.use('/api/payout', payoutRoutes);
 
 // Initialize background jobs
 const initCronJobs = require('./jobs/cronJobs');

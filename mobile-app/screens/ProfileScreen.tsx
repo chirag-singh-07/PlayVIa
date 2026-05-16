@@ -118,25 +118,25 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
           <MenuOption 
             icon="download-outline" 
             title="Downloads" 
-            subtitle="20 videos" 
+            subtitle="View your saved videos" 
             onPress={() => navigation.navigate('DownloadManager')} 
           />
           <MenuOption 
-            icon="film-outline" 
-            title="Your movies" 
-            onPress={() => {}} 
+            icon="time-outline" 
+            title="Watch History" 
+            onPress={() => navigation.navigate('Library')} 
           />
           
           <View style={styles.sectionDivider} />
           
           <MenuOption 
-            icon="time-outline" 
-            title="Time watched" 
-            onPress={() => {}} 
+            icon="cash-outline" 
+            title="Earnings & Payouts" 
+            onPress={() => navigation.navigate('Withdrawal')} 
           />
           <MenuOption 
             icon="shield-checkmark-outline" 
-            title="Your data in VidPlay" 
+            title="Your data in PlayVia" 
             onPress={() => {}} 
           />
           

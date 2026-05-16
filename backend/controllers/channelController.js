@@ -131,33 +131,27 @@ const updateChannel = asyncHandler(async (req, res) => {
   if (name) channel.name = name;
   if (description) channel.description = description;
 
-  if (req.files) {
-    console.log('📦 File fields received:', Object.keys(req.files));
-    
-    if (req.files.banner && req.files.banner[0]) {
+  if (req.files && typeof req.files === 'object') {
+    if (req.files.banner && Array.isArray(req.files.banner) && req.files.banner[0]) {
       const file = req.files.banner[0];
       const bannerUrl = file.location || file.path || file.secure_url || file.url;
       if (bannerUrl) {
-        console.log('🖼️ New banner URL found');
         channel.banner = bannerUrl;
       }
     }
     
-    if (req.files.avatar && req.files.avatar[0]) {
+    if (req.files.avatar && Array.isArray(req.files.avatar) && req.files.avatar[0]) {
       const file = req.files.avatar[0];
       const avatarUrl = file.location || file.path || file.secure_url || file.url;
       if (avatarUrl) {
-        console.log('👤 New avatar URL found');
         channel.avatar = avatarUrl;
         
         try {
           // Sync with User model
           const User = require('../models/User');
           await User.findByIdAndUpdate(req.user._id, { avatar: avatarUrl });
-          console.log('🔄 User model avatar synced');
         } catch (syncError) {
-          console.error('⚠️ Error syncing avatar to User model:', syncError);
-          // Don't throw error, continue with channel update
+          console.error('⚠️ Avatar sync error:', syncError);
         }
       }
     }

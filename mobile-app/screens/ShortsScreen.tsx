@@ -23,6 +23,7 @@ const { height: WINDOW_HEIGHT } = Dimensions.get('window');
 
 export const ShortsScreen: React.FC = () => {
   const isFocused = useIsFocused();
+  const [originalShorts, setOriginalShorts] = useState<any[]>([]);
   const [rawShorts, setRawShorts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
@@ -38,6 +39,7 @@ export const ShortsScreen: React.FC = () => {
     const fetchShorts = async () => {
       try {
         const data = await videoService.getShorts();
+        setOriginalShorts(data.videos || []);
         setRawShorts(data.videos || []);
       } catch (error) {
         console.error('Error fetching shorts:', error);
@@ -112,6 +114,18 @@ export const ShortsScreen: React.FC = () => {
           offset: WINDOW_HEIGHT * index,
           index,
         })}
+        onEndReached={() => {
+          if (originalShorts.length > 0) {
+            setRawShorts(prev => [
+              ...prev,
+              ...originalShorts.map(short => ({
+                ...short,
+                _id: `${short._id}_loop_${Date.now()}_${Math.random().toString(36).substring(7)}`
+              }))
+            ]);
+          }
+        }}
+        onEndReachedThreshold={0.5}
       />
 
       {/* Top Header Overlay */}

@@ -67,24 +67,29 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
           keyExtractor={(item) => item._id}
           onScroll={onScroll}
           scrollEventThrottle={16}
-          renderItem={({ item }) => (
-            <VideoCard
-              title={item.title}
-              thumbnail={item.thumbnailUrl || getCloudinaryThumbnail(item.videoUrl) || ''}
-              channelName={item.channel?.name || 'Unknown Channel'}
-              channelAvatar={item.channel?.avatar || ''}
-              views={formatViews(item.views || 0)}
-              createdAt={formatTimeAgo(item.createdAt)}
-              duration={formatDuration(item.duration)}
-              // ✅ Use handleVideoPress instead of navigation.navigate
-              // This shows an interstitial every 3rd tap, then navigates
-              onPress={() => handleVideoPress(item)}
-              onChannelPress={() => {
-                if (item.channel?._id) {
-                  navigation.navigate('ChannelProfile', { channelId: item.channel._id });
-                }
-              }}
-            />
+          renderItem={({ item, index }) => (
+            <View>
+              <VideoCard
+                title={item.title}
+                thumbnail={item.thumbnailUrl || getCloudinaryThumbnail(item.videoUrl) || ''}
+                channelName={item.channel?.name || 'Unknown Channel'}
+                channelAvatar={item.channel?.avatar || ''}
+                views={formatViews(item.views || 0)}
+                createdAt={formatTimeAgo(item.createdAt)}
+                duration={formatDuration(item.duration)}
+                onPress={() => handleVideoPress(item)}
+                onChannelPress={() => {
+                  if (item.channel?._id) {
+                    navigation.navigate('ChannelProfile', { channelId: item.channel._id });
+                  }
+                }}
+              />
+              {(index + 1) % 4 === 0 && (
+                <View style={styles.inlineBanner}>
+                  <BannerAdView size="LARGE_BANNER" />
+                </View>
+              )}
+            </View>
           )}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.listContent, { paddingTop: 60 }]}
@@ -133,6 +138,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     backgroundColor: colors.dark.background,
+  },
+  inlineBanner: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: colors.dark.background,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.dark.border,
+    marginTop: 8,
+    marginBottom: 8,
   },
 });
 
